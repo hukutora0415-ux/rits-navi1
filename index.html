@@ -4,97 +4,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>りつナビ</title>
+    <title>りつナビ - 立命館大学新歓情報</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans JP', sans-serif; }
+        body { font-family: 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .active-scale:active { transform: scale(0.96); }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
+
+    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const { useState, useEffect, useMemo } = React;
+
+        // Firebase設定 (環境変数から読み込み)
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         const App = () => {
+            const [user, setUser] = useState(null);
+            const [events, setEvents] = useState([]);
             const [view, setView] = useState('list');
             const [selectedEvent, setSelectedEvent] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showAddForm, setShowAddForm] = useState(false);
             const [filterGenre, setFilterGenre] = useState('すべて');
             const [searchQuery, setSearchQuery] = useState('');
-            const [showLinkModal, setShowLinkModal] = useState(false);
+
+            const [formData, setFormData] = useState({
+                circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram'
+            });
+
+            // 1. 認証 (RULE 3)
+            useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (e) {
+                        console.error("Auth error", e);
+                    }
+                };
+                initAuth();
+                const unsubscribe = onAuthStateChanged(auth, setUser);
+                return () => unsubscribe();
+            }, []);
+
+            // 2. データ取得 (RULE 1 & 2)
+            useEffect(() => {
+                if (!user) return;
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
+                const unsubscribe = onSnapshot(colRef, (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setEvents(data);
+                }, (err) => console.error("Firestore error", err));
+                return () => unsubscribe();
+            }, [user]);
 
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
-            }, [view, showLinkModal, selectedEvent]);
-
-            const events = [
-                {
-                    id: 1,
-                    circleName: "立命館大学 広告研究会",
-                    eventName: "春の新歓映像祭 & 交流会",
-                    date: "2026-04-10",
-                    time: "18:00 - 20:00",
-                    place: "衣笠 至善館 1F",
-                    price: "無料",
-                    genre: "文化",
-                    description: "CM制作やグラフィックデザインを行っています。新歓では過去の作品上映と先輩たちとのフリートークを楽しめます！",
-                    linkUrl: "https://www.instagram.com/",
-                    linkType: "Instagram"
-                },
-                {
-                    id: 2,
-                    circleName: "BKCテニスサークル R-Shot",
-                    eventName: "体験練習会 @テニスコート",
-                    date: "2026-04-12",
-                    time: "13:00 - 16:00",
-                    place: "BKC テニスコート第3",
-                    price: "500円",
-                    genre: "スポーツ",
-                    description: "BKC最大級のテニスサークルです！経験者はもちろん、大学から始めたい人も大歓迎です。",
-                    linkUrl: "https://line.me/",
-                    linkType: "公式LINE"
-                }
-            ];
+            }, [view, isAdmin, showAddForm, events]);
 
             const filteredEvents = useMemo(() => {
                 return events
                     .filter(ev => filterGenre === 'すべて' || ev.genre === filterGenre)
-                    .filter(ev => ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery));
-            }, [filterGenre, searchQuery]);
+                    .filter(ev => ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery))
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+            }, [events, filterGenre, searchQuery]);
+
+            const handleAdminLogin = () => {
+                const pass = prompt("管理者パスワードを入力してください\n(初期設定: ritsu2026)");
+                if (pass === "ritsu2026") {
+                    setIsAdmin(true);
+                } else {
+                    alert("パスワードが正しくありません。");
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!user) return;
+                try {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
+                    await addDoc(colRef, { ...formData, createdAt: Date.now() });
+                    setShowAddForm(false);
+                    setFormData({ circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram' });
+                } catch (err) {
+                    alert("保存に失敗しました。");
+                }
+            };
+
+            const handleDelete = async (id) => {
+                if (!confirm("この投稿を削除しますか？")) return;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id));
+                } catch (err) {
+                    alert("削除に失敗しました。");
+                }
+            };
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col relative overflow-x-hidden shadow-xl">
-                    <div className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center text-white font-black text-xs text-center">R</div>
-                            <h1 className="text-xl font-black text-gray-800 tracking-tight">りつナビ</h1>
+                <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative shadow-2xl">
+                    {/* ヘッダー */}
+                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2 active-scale" onClick={() => setView('list')}>
+                            <div className="w-8 h-8 bg-red-800 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-red-900/20">R</div>
+                            <h1 className="text-xl font-black text-gray-800 tracking-tighter">りつナビ</h1>
                         </div>
-                    </div>
+                        <div className="flex items-center gap-2">
+                            {isAdmin ? (
+                                <>
+                                    <button onClick={() => setShowAddForm(true)} className="bg-red-800 text-white p-2 rounded-full shadow-lg active-scale"><i data-lucide="plus" size="18"></i></button>
+                                    <button onClick={() => setIsAdmin(false)} className="bg-gray-100 text-gray-400 p-2 rounded-full active-scale"><i data-lucide="log-out" size="18"></i></button>
+                                </>
+                            ) : (
+                                <button onClick={handleAdminLogin} className="text-[10px] font-black text-gray-400 border border-gray-200 px-3 py-1.5 rounded-full active-scale uppercase tracking-wider">Admin</button>
+                            )}
+                        </div>
+                    </header>
 
-                    {view === 'list' ? (
-                        <div className="flex-1">
-                            <div className="p-4 bg-white border-b">
-                                <input 
-                                    type="text"
-                                    placeholder="サークルやイベントを検索"
-                                    className="w-full bg-gray-100 rounded-xl py-3 px-4 text-sm focus:outline-none mb-4"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
+                    {view === 'list' && (
+                        <div className="flex-1 overflow-y-auto pb-24">
+                            {/* 検索・フィルタ */}
+                            <div className="p-4 bg-white border-b space-y-4">
+                                <div className="relative">
+                                    <i data-lucide="search" className="absolute left-3 top-3 text-gray-400" size="16"></i>
+                                    <input 
+                                        type="text" 
+                                        placeholder="サークル名やイベントで検索" 
+                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-800/10"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
                                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                                     {['すべて', 'スポーツ', '文化', '音楽', 'ボランティア'].map(g => (
                                         <button
                                             key={g}
                                             onClick={() => setFilterGenre(g)}
-                                            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all ${filterGenre === g ? 'bg-red-800 border-red-800 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500'}`}
+                                            className={`px-4 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all border ${filterGenre === g ? 'bg-red-800 border-red-800 text-white shadow-md' : 'bg-white border-gray-100 text-gray-400'}`}
                                         >
                                             {g}
                                         </button>
@@ -102,69 +170,13 @@
                                 </div>
                             </div>
 
+                            {/* リスト表示 */}
                             <div className="p-4 space-y-4">
-                                {filteredEvents.map(event => (
-                                    <div key={event.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm active:scale-[0.98] transition-transform" onClick={() => { setSelectedEvent(event); setView('detail'); }}>
-                                        <div className="h-32 bg-red-50 flex items-center justify-center font-black text-red-800/10 text-5xl">{event.circleName[0]}</div>
-                                        <div className="p-4">
-                                            <p className="text-[10px] font-bold text-red-800">{event.circleName}</p>
-                                            <h3 className="text-lg font-black text-gray-800 mb-2">{event.eventName}</h3>
-                                            <div className="flex gap-3 text-[10px] text-gray-400 font-bold">
-                                                <span>📅 {event.date}</span>
-                                                <span>📍 {event.place}</span>
-                                            </div>
-                                        </div>
+                                {events.length === 0 && (
+                                    <div className="py-20 text-center text-gray-400">
+                                        <i data-lucide="calendar" className="mx-auto mb-2 opacity-20" size="48"></i>
+                                        <p className="text-sm font-bold tracking-widest uppercase">No Events Yet</p>
+                                        <p className="text-[10px]">管理画面から最初の投稿を追加してください</p>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex-1 bg-white">
-                            <div className="relative h-48 bg-red-900 flex items-center justify-center">
-                                <button onClick={() => setView('list')} className="absolute top-4 left-4 bg-white/20 text-white p-2 rounded-full">←</button>
-                                <span className="text-white/10 font-black text-[120px]">{selectedEvent.circleName[0]}</span>
-                            </div>
-                            <div className="p-6 -mt-8 bg-white rounded-t-[32px] min-h-screen shadow-2xl">
-                                <h2 className="text-2xl font-black text-gray-800">{selectedEvent.eventName}</h2>
-                                <p className="text-red-800 font-bold text-sm mb-6 underline underline-offset-4">{selectedEvent.circleName}</p>
-                                <div className="grid grid-cols-2 gap-3 mb-8">
-                                    <div className="bg-gray-50 p-4 rounded-2xl">
-                                        <p className="text-[10px] text-gray-400 font-bold">DATE/TIME</p>
-                                        <p className="text-xs font-black">{selectedEvent.date}<br/>{selectedEvent.time}</p>
-                                    </div>
-                                    <div className="bg-gray-50 p-4 rounded-2xl">
-                                        <p className="text-[10px] text-gray-400 font-bold">PLACE</p>
-                                        <p className="text-xs font-black">{selectedEvent.place}</p>
-                                    </div>
-                                </div>
-                                <p className="text-sm text-gray-600 leading-relaxed mb-32">{selectedEvent.description}</p>
-                                <div className="fixed bottom-6 left-6 right-6 max-w-md mx-auto">
-                                    <button onClick={() => setShowLinkModal(true)} className="w-full bg-red-800 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-red-900/20 active:scale-95 transition-transform">
-                                        詳細・申し込み先へ
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {showLinkModal && (
-                        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center p-4">
-                            <div className="bg-white w-full rounded-[32px] p-8 text-center">
-                                <h3 className="text-xl font-black mb-2">リンク先へ移動</h3>
-                                <p className="text-sm text-gray-500 mb-8 font-bold">「{selectedEvent.linkType}」へ移動しますか？</p>
-                                <button onClick={() => { window.open(selectedEvent.linkUrl, '_blank'); setShowLinkModal(false); }} className="w-full bg-red-800 text-white py-4 rounded-2xl font-black mb-2">移動する</button>
-                                <button onClick={() => setShowLinkModal(false)} className="w-full py-4 text-gray-400 font-bold">キャンセル</button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
-
-```
+                                )}
+                                
