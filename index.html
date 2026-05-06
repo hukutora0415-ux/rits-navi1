@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>りつナビ - 立命館大学新歓情報</title>
+    <title>りつナビ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -12,171 +12,153 @@
         body { font-family: 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .active-scale:active { transform: scale(0.96); }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
-
-    <!-- React & Babel -->
+    <!-- React libraries -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
         const { useState, useEffect, useMemo } = React;
 
-        // Firebase設定 (環境変数から読み込み)
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
         const App = () => {
-            const [user, setUser] = useState(null);
-            const [events, setEvents] = useState([]);
             const [view, setView] = useState('list');
             const [selectedEvent, setSelectedEvent] = useState(null);
             const [isAdmin, setIsAdmin] = useState(false);
             const [showAddForm, setShowAddForm] = useState(false);
-            const [filterGenre, setFilterGenre] = useState('すべて');
             const [searchQuery, setSearchQuery] = useState('');
+            
+            // 最初から入っているデータ
+            const [events, setEvents] = useState([
+                {
+                    id: 1,
+                    circleName: "立命館大学 広告研究会",
+                    eventName: "春の新歓映像祭",
+                    date: "2026-04-10",
+                    time: "18:00-20:00",
+                    place: "衣笠 至善館",
+                    genre: "文化",
+                    description: "管理画面から新しい情報をどんどん追加できます！",
+                    linkUrl: "https://instagram.com",
+                    linkType: "Instagram"
+                }
+            ]);
 
+            // フォーム用
             const [formData, setFormData] = useState({
                 circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram'
             });
-
-            // 1. 認証 (RULE 3)
-            useEffect(() => {
-                const initAuth = async () => {
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (e) {
-                        console.error("Auth error", e);
-                    }
-                };
-                initAuth();
-                const unsubscribe = onAuthStateChanged(auth, setUser);
-                return () => unsubscribe();
-            }, []);
-
-            // 2. データ取得 (RULE 1 & 2)
-            useEffect(() => {
-                if (!user) return;
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
-                const unsubscribe = onSnapshot(colRef, (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setEvents(data);
-                }, (err) => console.error("Firestore error", err));
-                return () => unsubscribe();
-            }, [user]);
 
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
             }, [view, isAdmin, showAddForm, events]);
 
-            const filteredEvents = useMemo(() => {
-                return events
-                    .filter(ev => filterGenre === 'すべて' || ev.genre === filterGenre)
-                    .filter(ev => ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery))
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
-            }, [events, filterGenre, searchQuery]);
-
             const handleAdminLogin = () => {
-                const pass = prompt("管理者パスワードを入力してください\n(初期設定: ritsu2026)");
+                const pass = prompt("管理者パスワードを入力してください\n(パスワード: ritsu2026)");
                 if (pass === "ritsu2026") {
                     setIsAdmin(true);
                 } else {
-                    alert("パスワードが正しくありません。");
+                    alert("パスワードが違います");
                 }
             };
 
-            const handleSubmit = async (e) => {
+            const handleSubmit = (e) => {
                 e.preventDefault();
-                if (!user) return;
-                try {
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
-                    await addDoc(colRef, { ...formData, createdAt: Date.now() });
-                    setShowAddForm(false);
-                    setFormData({ circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram' });
-                } catch (err) {
-                    alert("保存に失敗しました。");
+                const newEvent = { ...formData, id: Date.now() };
+                setEvents([newEvent, ...events]);
+                setShowAddForm(false);
+                setFormData({ circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram' });
+            };
+
+            const handleDelete = (id) => {
+                if (confirm("この投稿を削除しますか？")) {
+                    setEvents(events.filter(ev => ev.id !== id));
                 }
             };
 
-            const handleDelete = async (id) => {
-                if (!confirm("この投稿を削除しますか？")) return;
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id));
-                } catch (err) {
-                    alert("削除に失敗しました。");
-                }
-            };
+            const filteredEvents = events.filter(ev => 
+                ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery)
+            );
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative shadow-2xl">
-                    {/* ヘッダー */}
-                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center">
-                        <div className="flex items-center gap-2 active-scale" onClick={() => setView('list')}>
-                            <div className="w-8 h-8 bg-red-800 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-red-900/20">R</div>
-                            <h1 className="text-xl font-black text-gray-800 tracking-tighter">りつナビ</h1>
+                <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-xl">
+                    <header className="sticky top-0 z-30 bg-white border-b px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2" onClick={() => setView('list')}>
+                            <div className="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center text-white font-black">R</div>
+                            <h1 className="text-xl font-black text-gray-800">りつナビ</h1>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex gap-2">
                             {isAdmin ? (
                                 <>
-                                    <button onClick={() => setShowAddForm(true)} className="bg-red-800 text-white p-2 rounded-full shadow-lg active-scale"><i data-lucide="plus" size="18"></i></button>
-                                    <button onClick={() => setIsAdmin(false)} className="bg-gray-100 text-gray-400 p-2 rounded-full active-scale"><i data-lucide="log-out" size="18"></i></button>
+                                    <button onClick={() => setShowAddForm(true)} className="bg-red-800 text-white p-2 rounded-full"><i data-lucide="plus" size="18"></i></button>
+                                    <button onClick={() => setIsAdmin(false)} className="bg-gray-100 text-gray-400 p-2 rounded-full"><i data-lucide="log-out" size="18"></i></button>
                                 </>
                             ) : (
-                                <button onClick={handleAdminLogin} className="text-[10px] font-black text-gray-400 border border-gray-200 px-3 py-1.5 rounded-full active-scale uppercase tracking-wider">Admin</button>
+                                <button onClick={handleAdminLogin} className="text-[10px] font-black text-gray-300 border px-3 py-1 rounded-full uppercase tracking-widest">Admin</button>
                             )}
                         </div>
                     </header>
 
-                    {view === 'list' && (
-                        <div className="flex-1 overflow-y-auto pb-24">
-                            {/* 検索・フィルタ */}
-                            <div className="p-4 bg-white border-b space-y-4">
-                                <div className="relative">
-                                    <i data-lucide="search" className="absolute left-3 top-3 text-gray-400" size="16"></i>
-                                    <input 
-                                        type="text" 
-                                        placeholder="サークル名やイベントで検索" 
-                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-800/10"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                                    {['すべて', 'スポーツ', '文化', '音楽', 'ボランティア'].map(g => (
-                                        <button
-                                            key={g}
-                                            onClick={() => setFilterGenre(g)}
-                                            className={`px-4 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all border ${filterGenre === g ? 'bg-red-800 border-red-800 text-white shadow-md' : 'bg-white border-gray-100 text-gray-400'}`}
-                                        >
-                                            {g}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* リスト表示 */}
-                            <div className="p-4 space-y-4">
-                                {events.length === 0 && (
-                                    <div className="py-20 text-center text-gray-400">
-                                        <i data-lucide="calendar" className="mx-auto mb-2 opacity-20" size="48"></i>
-                                        <p className="text-sm font-bold tracking-widest uppercase">No Events Yet</p>
-                                        <p className="text-[10px]">管理画面から最初の投稿を追加してください</p>
+                    {view === 'list' ? (
+                        <div className="flex-1 p-4 space-y-4">
+                            <input 
+                                type="text" 
+                                placeholder="サークルを検索" 
+                                className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:outline-none mb-2"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            {filteredEvents.map(ev => (
+                                <div key={ev.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 relative" onClick={() => { setSelectedEvent(ev); setView('detail'); }}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-[10px] font-black text-red-800 bg-red-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">{ev.genre}</span>
+                                        {isAdmin && (
+                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(ev.id); }} className="text-gray-300 hover:text-red-500"><i data-lucide="trash-2" size="14"></i></button>
+                                        )}
                                     </div>
-                                )}
-                                
+                                    <h3 className="text-lg font-black text-gray-800 leading-tight">{ev.eventName}</h3>
+                                    <p className="text-xs text-gray-500 mb-3">{ev.circleName}</p>
+                                    <div className="flex gap-3 text-[10px] text-gray-400 font-bold tracking-tight">
+                                        <span>📅 {ev.date}</span>
+                                        <span>📍 {ev.place}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex-1 bg-white p-6 animate-in slide-in-from-right duration-300">
+                            <button onClick={() => setView('list')} className="mb-6 text-gray-400 font-bold flex items-center gap-1">← 戻る</button>
+                            <h2 className="text-2xl font-black text-gray-800 mb-1">{selectedEvent.eventName}</h2>
+                            <p className="text-red-800 font-black text-sm mb-8 underline">{selectedEvent.circleName}</p>
+                            <div className="bg-gray-50 p-5 rounded-2xl mb-8 space-y-2">
+                                <p className="text-sm font-bold">📅 日時: {selectedEvent.date} {selectedEvent.time}</p>
+                                <p className="text-sm font-bold">📍 場所: {selectedEvent.place}</p>
+                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed mb-20 whitespace-pre-wrap">{selectedEvent.description}</p>
+                            <a href={selectedEvent.linkUrl} target="_blank" className="fixed bottom-6 left-6 right-6 max-w-md mx-auto block bg-red-800 text-white text-center py-4 rounded-2xl font-black text-lg shadow-xl">
+                                {selectedEvent.linkType} で詳細を見る
+                            </a>
+                        </div>
+                    )}
+
+                    {showAddForm && (
+                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center">
+                            <div className="bg-white w-full max-w-md rounded-t-[32px] p-6 h-[90vh] overflow-y-auto">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-black italic">新歓情報を追加</h2>
+                                    <button onClick={() => setShowAddForm(false)} className="text-gray-400">✕</button>
+                                </div>
+                                <form onSubmit={handleSubmit} className="space-y-4 pb-10">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-gray-400">サークル名</label>
+                                        <input required className="w-full bg-gray-50 p-3 rounded-xl border border-gray-100 focus:outline-none" placeholder="立命館サークル" value={formData.circleName} onChange={e => setFormData({...formData, circleName: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-gray-400">イベント名</label>
+                                        <input required className="w-full bg-gray-50 p-3 rounded-xl border border-gray-100 focus:outline-none" placeholder="春の新歓体験会" value={formData.eventName} onChange={e => setFormData({...formData, eventName: e.target.value})} />
+                                    </div>
+                                 
