@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>りつナビ</title>
-    <!-- Tailwind CSS & Lucide Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -13,13 +12,11 @@
         body { font-family: 'Noto Sans JP', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .active-scale:active { transform: scale(0.98); }
     </style>
 </head>
 <body class="bg-gray-100">
     <div id="root"></div>
 
-    <!-- React & Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -34,15 +31,11 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [showLinkModal, setShowLinkModal] = useState(false);
 
-            // アイコンのリフレッシュ
             useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
+                if (window.lucide) window.lucide.createIcons();
             }, [view, showLinkModal, selectedEvent]);
 
-            // --- サークルデータエリア (ここを書き換えれば中身が増えます) ---
-            const [events, setEvents] = useState([
+            const events = [
                 {
                     id: 1,
                     circleName: "立命館大学 広告研究会",
@@ -69,41 +62,34 @@
                     linkUrl: "https://line.me/",
                     linkType: "公式LINE"
                 }
-            ]);
+            ];
 
             const filteredEvents = useMemo(() => {
                 return events
                     .filter(ev => filterGenre === 'すべて' || ev.genre === filterGenre)
                     .filter(ev => ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery));
-            }, [events, filterGenre, searchQuery]);
+            }, [filterGenre, searchQuery]);
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative shadow-2xl overflow-x-hidden">
-                    
-                    {/* ヘッダー */}
+                <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col relative overflow-x-hidden shadow-xl">
                     <div className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-black text-xs">R</span>
-                            </div>
+                            <div className="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center text-white font-black text-xs text-center">R</div>
                             <h1 className="text-xl font-black text-gray-800 tracking-tight">りつナビ</h1>
                         </div>
                     </div>
 
                     {view === 'list' ? (
-                        <div className="animate-in fade-in duration-500">
-                            {/* 検索とフィルタ */}
+                        <div className="flex-1">
                             <div className="p-4 bg-white border-b">
-                                <div className="relative mb-4">
-                                    <input 
-                                        type="text"
-                                        placeholder="サークルやイベントを検索"
-                                        className="w-full bg-gray-100 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-800/20"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                                <input 
+                                    type="text"
+                                    placeholder="サークルやイベントを検索"
+                                    className="w-full bg-gray-100 rounded-xl py-3 px-4 text-sm focus:outline-none mb-4"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                                     {['すべて', 'スポーツ', '文化', '音楽', 'ボランティア'].map(g => (
                                         <button
                                             key={g}
@@ -116,26 +102,16 @@
                                 </div>
                             </div>
 
-                            {/* リスト表示 */}
-                            <div className="p-4 space-y-4 pb-24">
+                            <div className="p-4 space-y-4">
                                 {filteredEvents.map(event => (
-                                    <div 
-                                        key={event.id} 
-                                        className="bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm active-scale transition-transform"
-                                        onClick={() => { setSelectedEvent(event); setView('detail'); }}
-                                    >
-                                        <div className="h-32 bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
-                                            <span className="text-red-800/10 font-black text-5xl">{event.circleName[0]}</span>
-                                        </div>
+                                    <div key={event.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm active:scale-[0.98] transition-transform" onClick={() => { setSelectedEvent(event); setView('detail'); }}>
+                                        <div className="h-32 bg-red-50 flex items-center justify-center font-black text-red-800/10 text-5xl">{event.circleName[0]}</div>
                                         <div className="p-4">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <p className="text-[10px] font-bold text-red-800">{event.circleName}</p>
-                                                <span className="text-[10px] text-gray-400 font-bold">{event.genre}</span>
-                                            </div>
-                                            <h3 className="text-lg font-black text-gray-800 leading-tight mb-2">{event.eventName}</h3>
-                                            <div className="flex gap-3 text-[10px] text-gray-500 font-bold">
-                                                <div className="flex items-center gap-1"><i data-lucide="calendar" size="12"></i>{event.date}</div>
-                                                <div className="flex items-center gap-1"><i data-lucide="map-pin" size="12"></i>{event.place}</div>
+                                            <p className="text-[10px] font-bold text-red-800">{event.circleName}</p>
+                                            <h3 className="text-lg font-black text-gray-800 mb-2">{event.eventName}</h3>
+                                            <div className="flex gap-3 text-[10px] text-gray-400 font-bold">
+                                                <span>📅 {event.date}</span>
+                                                <span>📍 {event.place}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -143,29 +119,52 @@
                             </div>
                         </div>
                     ) : (
-                        <div className="flex-1 bg-white animate-in slide-in-from-right duration-300">
-                            <div className="relative h-48 bg-red-900 flex items-center justify-center overflow-hidden">
-                                <button onClick={() => setView('list')} className="absolute top-4 left-4 z-10 bg-white/20 backdrop-blur-md text-white p-2 rounded-full">
-                                    <i data-lucide="chevron-left"></i>
-                                </button>
+                        <div className="flex-1 bg-white">
+                            <div className="relative h-48 bg-red-900 flex items-center justify-center">
+                                <button onClick={() => setView('list')} className="absolute top-4 left-4 bg-white/20 text-white p-2 rounded-full">←</button>
                                 <span className="text-white/10 font-black text-[120px]">{selectedEvent.circleName[0]}</span>
                             </div>
-                            
-                            <div className="p-6 -mt-8 bg-white rounded-t-[32px] shadow-2xl relative min-h-screen">
-                                <h2 className="text-2xl font-black text-gray-800 mb-1">{selectedEvent.eventName}</h2>
-                                <p className="text-red-800 font-bold text-sm mb-6 flex items-center gap-1">
-                                    <i data-lucide="users" size="14"></i>{selectedEvent.circleName}
-                                </p>
-
+                            <div className="p-6 -mt-8 bg-white rounded-t-[32px] min-h-screen shadow-2xl">
+                                <h2 className="text-2xl font-black text-gray-800">{selectedEvent.eventName}</h2>
+                                <p className="text-red-800 font-bold text-sm mb-6 underline underline-offset-4">{selectedEvent.circleName}</p>
                                 <div className="grid grid-cols-2 gap-3 mb-8">
-                                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                        <p className="text-[10px] font-bold text-gray-400 mb-1 tracking-widest">DATE / TIME</p>
-                                        <p className="text-xs font-black text-gray-800">{selectedEvent.date}<br/>{selectedEvent.time}</p>
+                                    <div className="bg-gray-50 p-4 rounded-2xl">
+                                        <p className="text-[10px] text-gray-400 font-bold">DATE/TIME</p>
+                                        <p className="text-xs font-black">{selectedEvent.date}<br/>{selectedEvent.time}</p>
                                     </div>
-                                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                        <p className="text-[10px] font-bold text-gray-400 mb-1 tracking-widest">PLACE</p>
-                                        <p className="text-xs font-black text-gray-800">{selectedEvent.place}</p>
+                                    <div className="bg-gray-50 p-4 rounded-2xl">
+                                        <p className="text-[10px] text-gray-400 font-bold">PLACE</p>
+                                        <p className="text-xs font-black">{selectedEvent.place}</p>
                                     </div>
                                 </div>
+                                <p className="text-sm text-gray-600 leading-relaxed mb-32">{selectedEvent.description}</p>
+                                <div className="fixed bottom-6 left-6 right-6 max-w-md mx-auto">
+                                    <button onClick={() => setShowLinkModal(true)} className="w-full bg-red-800 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-red-900/20 active:scale-95 transition-transform">
+                                        詳細・申し込み先へ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-               
+                    {showLinkModal && (
+                        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center p-4">
+                            <div className="bg-white w-full rounded-[32px] p-8 text-center">
+                                <h3 className="text-xl font-black mb-2">リンク先へ移動</h3>
+                                <p className="text-sm text-gray-500 mb-8 font-bold">「{selectedEvent.linkType}」へ移動しますか？</p>
+                                <button onClick={() => { window.open(selectedEvent.linkUrl, '_blank'); setShowLinkModal(false); }} className="w-full bg-red-800 text-white py-4 rounded-2xl font-black mb-2">移動する</button>
+                                <button onClick={() => setShowLinkModal(false)} className="w-full py-4 text-gray-400 font-bold">キャンセル</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+```
