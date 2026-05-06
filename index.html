@@ -12,153 +12,168 @@
         body { font-family: 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .active-scale:active { transform: scale(0.98); transition: 0.1s; }
+        .modal-bg { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
-    <div id="root"></div>
 
-    <!-- React libraries -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-xl relative">
+        <!-- ヘッダー -->
+        <header class="sticky top-0 z-30 bg-white border-b px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2" onclick="showListView()">
+                <div class="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center text-white font-black shadow-lg">R</div>
+                <h1 class="text-xl font-black text-gray-800 tracking-tighter">りつナビ</h1>
+            </div>
+            <div id="header-buttons" class="flex gap-2">
+                <button onclick="handleAdminLogin()" class="text-[10px] font-black text-gray-300 border border-gray-200 px-3 py-1.5 rounded-full uppercase tracking-widest active-scale">Admin</button>
+            </div>
+        </header>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        <!-- メインコンテンツ表示エリア -->
+        <main id="main-content" class="flex-1 overflow-y-auto">
+            <!-- ここに中身が自動で入ります -->
+        </main>
+    </div>
 
-        const App = () => {
-            const [view, setView] = useState('list');
-            const [selectedEvent, setSelectedEvent] = useState(null);
-            const [isAdmin, setIsAdmin] = useState(false);
-            const [showAddForm, setShowAddForm] = useState(false);
-            const [searchQuery, setSearchQuery] = useState('');
+    <!-- 投稿フォームモーダル -->
+    <div id="modal" class="fixed inset-0 z-[100] modal-bg hidden flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[40px] p-8 h-[92vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-black text-gray-800 italic tracking-tighter">POST EVENT</h2>
+                <button onclick="closeModal()" class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400">✕</button>
+            </div>
+            <div class="space-y-6 pb-12">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Circle Name</label>
+                    <input id="f-circle" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="例: 立命館大学 広告研究会">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Event Title</label>
+                    <input id="f-title" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="例: 春の新歓映像祭">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</label>
+                        <input id="f-date" type="date" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-xs">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Time</label>
+                        <input id="f-time" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="18:00-20:00">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Location</label>
+                    <input id="f-place" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="例: 衣笠 至善館">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Genre</label>
+                    <select id="f-genre" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm">
+                        <option>スポーツ</option><option>文化</option><option>音楽</option><option>ボランティア</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</label>
+                    <textarea id="f-desc" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 h-32 outline-none font-bold text-sm" placeholder="サークルの魅力を伝えよう！"></textarea>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">SNS Link (URL)</label>
+                    <input id="f-link" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="https://instagram.com/...">
+                </div>
+                <button onclick="submitEvent()" class="w-full bg-red-800 text-white py-5 rounded-[24px] font-black text-xl shadow-xl active-scale">情報を公開する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. データ管理 ---
+        let isAdmin = false;
+        let events = [
+            {
+                id: 1,
+                circleName: "立命館大学 広告研究会",
+                eventName: "春の新歓映像祭",
+                date: "2026-04-10",
+                time: "18:00-20:00",
+                place: "衣笠 至善館",
+                genre: "文化",
+                description: "サンプルの投稿です。管理画面から自由に追加・削除ができます。",
+                linkUrl: "https://instagram.com",
+                linkType: "Instagram"
+            }
+        ];
+
+        // --- 2. 管理画面機能 ---
+        function handleAdminLogin() {
+            const pass = prompt("管理者パスワードを入力してください\n(パスワード: ritsu2026)");
+            if (pass === "ritsu2026") {
+                isAdmin = true;
+                updateHeader();
+                showListView();
+            } else {
+                alert("パスワードが違います");
+            }
+        }
+
+        function handleLogout() {
+            isAdmin = false;
+            updateHeader();
+            showListView();
+        }
+
+        function updateHeader() {
+            const container = document.getElementById('header-buttons');
+            if (isAdmin) {
+                container.innerHTML = `
+                    <button onclick="openModal()" class="bg-red-800 text-white p-2 rounded-full shadow-lg active-scale"><i data-lucide="plus" size="18"></i></button>
+                    <button onclick="handleLogout()" class="bg-gray-100 text-gray-400 p-2 rounded-full active-scale"><i data-lucide="log-out" size="18"></i></button>
+                `;
+            } else {
+                container.innerHTML = `
+                    <button onclick="handleAdminLogin()" class="text-[10px] font-black text-gray-300 border border-gray-200 px-3 py-1.5 rounded-full uppercase tracking-widest active-scale">Admin</button>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        // --- 3. 表示切り替え機能 ---
+        function showListView() {
+            const main = document.getElementById('main-content');
+            let html = `<div class="p-4 space-y-4">`;
             
-            // 最初から入っているデータ
-            const [events, setEvents] = useState([
-                {
-                    id: 1,
-                    circleName: "立命館大学 広告研究会",
-                    eventName: "春の新歓映像祭",
-                    date: "2026-04-10",
-                    time: "18:00-20:00",
-                    place: "衣笠 至善館",
-                    genre: "文化",
-                    description: "管理画面から新しい情報をどんどん追加できます！",
-                    linkUrl: "https://instagram.com",
-                    linkType: "Instagram"
-                }
-            ]);
-
-            // フォーム用
-            const [formData, setFormData] = useState({
-                circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram'
-            });
-
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [view, isAdmin, showAddForm, events]);
-
-            const handleAdminLogin = () => {
-                const pass = prompt("管理者パスワードを入力してください\n(パスワード: ritsu2026)");
-                if (pass === "ritsu2026") {
-                    setIsAdmin(true);
-                } else {
-                    alert("パスワードが違います");
-                }
-            };
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                const newEvent = { ...formData, id: Date.now() };
-                setEvents([newEvent, ...events]);
-                setShowAddForm(false);
-                setFormData({ circleName: '', eventName: '', date: '', time: '', place: '', genre: 'スポーツ', description: '', linkUrl: '', linkType: 'Instagram' });
-            };
-
-            const handleDelete = (id) => {
-                if (confirm("この投稿を削除しますか？")) {
-                    setEvents(events.filter(ev => ev.id !== id));
-                }
-            };
-
-            const filteredEvents = events.filter(ev => 
-                ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery)
-            );
-
-            return (
-                <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-xl">
-                    <header className="sticky top-0 z-30 bg-white border-b px-4 py-3 flex justify-between items-center">
-                        <div className="flex items-center gap-2" onClick={() => setView('list')}>
-                            <div className="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center text-white font-black">R</div>
-                            <h1 className="text-xl font-black text-gray-800">りつナビ</h1>
-                        </div>
-                        <div className="flex gap-2">
-                            {isAdmin ? (
-                                <>
-                                    <button onClick={() => setShowAddForm(true)} className="bg-red-800 text-white p-2 rounded-full"><i data-lucide="plus" size="18"></i></button>
-                                    <button onClick={() => setIsAdmin(false)} className="bg-gray-100 text-gray-400 p-2 rounded-full"><i data-lucide="log-out" size="18"></i></button>
-                                </>
-                            ) : (
-                                <button onClick={handleAdminLogin} className="text-[10px] font-black text-gray-300 border px-3 py-1 rounded-full uppercase tracking-widest">Admin</button>
-                            )}
-                        </div>
-                    </header>
-
-                    {view === 'list' ? (
-                        <div className="flex-1 p-4 space-y-4">
-                            <input 
-                                type="text" 
-                                placeholder="サークルを検索" 
-                                className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:outline-none mb-2"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                            {filteredEvents.map(ev => (
-                                <div key={ev.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 relative" onClick={() => { setSelectedEvent(ev); setView('detail'); }}>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-[10px] font-black text-red-800 bg-red-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">{ev.genre}</span>
-                                        {isAdmin && (
-                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(ev.id); }} className="text-gray-300 hover:text-red-500"><i data-lucide="trash-2" size="14"></i></button>
-                                        )}
-                                    </div>
-                                    <h3 className="text-lg font-black text-gray-800 leading-tight">{ev.eventName}</h3>
-                                    <p className="text-xs text-gray-500 mb-3">{ev.circleName}</p>
-                                    <div className="flex gap-3 text-[10px] text-gray-400 font-bold tracking-tight">
-                                        <span>📅 {ev.date}</span>
-                                        <span>📍 {ev.place}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="flex-1 bg-white p-6 animate-in slide-in-from-right duration-300">
-                            <button onClick={() => setView('list')} className="mb-6 text-gray-400 font-bold flex items-center gap-1">← 戻る</button>
-                            <h2 className="text-2xl font-black text-gray-800 mb-1">{selectedEvent.eventName}</h2>
-                            <p className="text-red-800 font-black text-sm mb-8 underline">{selectedEvent.circleName}</p>
-                            <div className="bg-gray-50 p-5 rounded-2xl mb-8 space-y-2">
-                                <p className="text-sm font-bold">📅 日時: {selectedEvent.date} {selectedEvent.time}</p>
-                                <p className="text-sm font-bold">📍 場所: {selectedEvent.place}</p>
+            events.forEach(ev => {
+                html += `
+                    <div class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden active-scale" onclick="showDetailView(${ev.id})">
+                        <div class="h-32 bg-red-50 flex items-center justify-center font-black text-red-800/10 text-5xl">${ev.circleName[0]}</div>
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-1">
+                                <p class="text-[10px] font-black text-red-800 uppercase tracking-widest">${ev.circleName}</p>
+                                ${isAdmin ? `<button onclick="event.stopPropagation(); deleteEvent(${ev.id})" class="text-gray-300 hover:text-red-500 transition-colors p-1"><i data-lucide="trash-2" size="14"></i></button>` : ''}
                             </div>
-                            <p className="text-sm text-gray-600 leading-relaxed mb-20 whitespace-pre-wrap">{selectedEvent.description}</p>
-                            <a href={selectedEvent.linkUrl} target="_blank" className="fixed bottom-6 left-6 right-6 max-w-md mx-auto block bg-red-800 text-white text-center py-4 rounded-2xl font-black text-lg shadow-xl">
-                                {selectedEvent.linkType} で詳細を見る
-                            </a>
+                            <h3 class="text-lg font-black text-gray-800 leading-tight mb-3">${ev.eventName}</h3>
+                            <div class="flex gap-3 text-[10px] text-gray-400 font-bold">
+                                <span>📅 ${ev.date}</span>
+                                <span>📍 ${ev.place}</span>
+                            </div>
                         </div>
-                    )}
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            main.innerHTML = html;
+            lucide.createIcons();
+        }
 
-                    {showAddForm && (
-                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center">
-                            <div className="bg-white w-full max-w-md rounded-t-[32px] p-6 h-[90vh] overflow-y-auto">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-xl font-black italic">新歓情報を追加</h2>
-                                    <button onClick={() => setShowAddForm(false)} className="text-gray-400">✕</button>
-                                </div>
-                                <form onSubmit={handleSubmit} className="space-y-4 pb-10">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-400">サークル名</label>
-                                        <input required className="w-full bg-gray-50 p-3 rounded-xl border border-gray-100 focus:outline-none" placeholder="立命館サークル" value={formData.circleName} onChange={e => setFormData({...formData, circleName: e.target.value})} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-400">イベント名</label>
-                                        <input required className="w-full bg-gray-50 p-3 rounded-xl border border-gray-100 focus:outline-none" placeholder="春の新歓体験会" value={formData.eventName} onChange={e => setFormData({...formData, eventName: e.target.value})} />
-                                    </div>
-                                 
+        function showDetailView(id) {
+            const ev = events.find(e => e.id === id);
+            const main = document.getElementById('main-content');
+            main.innerHTML = `
+                <div class="bg-white min-h-screen">
+                    <div class="relative h-56 bg-red-900 flex items-center justify-center">
+                        <button onclick="showListView()" class="absolute top-6 left-6 w-10 h-10 bg-white/20 rounded-full text-white flex items-center justify-center active-scale">
+                            <i data-lucide="chevron-left" size="20"></i>
+                        </button>
+                        <span class="text-white/10 font-black text-[140px] uppercase">${ev.circleName[0]}</span>
+                    </div>
+ 
