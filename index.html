@@ -5,66 +5,167 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>りつナビ</title>
+    <!-- Tailwind CSS & Lucide Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .active-scale:active { transform: scale(0.98); }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
     <div id="root"></div>
 
-    <!-- React 読み込み -->
+    <!-- React & Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useMemo, useEffect } = React;
 
-        function App() {
+        const App = () => {
+            const [view, setView] = useState('list');
+            const [selectedEvent, setSelectedEvent] = useState(null);
+            const [filterGenre, setFilterGenre] = useState('すべて');
+            const [searchQuery, setSearchQuery] = useState('');
+            const [showLinkModal, setShowLinkModal] = useState(false);
+
+            // アイコンのリフレッシュ
             useEffect(() => {
-                lucide.createIcons();
-            }, []);
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [view, showLinkModal, selectedEvent]);
+
+            // --- サークルデータエリア (ここを書き換えれば中身が増えます) ---
+            const [events, setEvents] = useState([
+                {
+                    id: 1,
+                    circleName: "立命館大学 広告研究会",
+                    eventName: "春の新歓映像祭 & 交流会",
+                    date: "2026-04-10",
+                    time: "18:00 - 20:00",
+                    place: "衣笠 至善館 1F",
+                    price: "無料",
+                    genre: "文化",
+                    description: "CM制作やグラフィックデザインを行っています。新歓では過去の作品上映と先輩たちとのフリートークを楽しめます！",
+                    linkUrl: "https://www.instagram.com/",
+                    linkType: "Instagram"
+                },
+                {
+                    id: 2,
+                    circleName: "BKCテニスサークル R-Shot",
+                    eventName: "体験練習会 @テニスコート",
+                    date: "2026-04-12",
+                    time: "13:00 - 16:00",
+                    place: "BKC テニスコート第3",
+                    price: "500円",
+                    genre: "スポーツ",
+                    description: "BKC最大級のテニスサークルです！経験者はもちろん、大学から始めたい人も大歓迎です。",
+                    linkUrl: "https://line.me/",
+                    linkType: "公式LINE"
+                }
+            ]);
+
+            const filteredEvents = useMemo(() => {
+                return events
+                    .filter(ev => filterGenre === 'すべて' || ev.genre === filterGenre)
+                    .filter(ev => ev.circleName.includes(searchQuery) || ev.eventName.includes(searchQuery));
+            }, [events, filterGenre, searchQuery]);
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-white shadow-lg flex flex-col">
+                <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative shadow-2xl overflow-x-hidden">
+                    
                     {/* ヘッダー */}
-                    <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+                    <div className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-red-700 rounded flex items-center justify-center text-white font-bold">R</div>
-                            <h1 className="text-xl font-black">りつナビ</h1>
+                            <div className="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-black text-xs">R</span>
+                            </div>
+                            <h1 className="text-xl font-black text-gray-800 tracking-tight">りつナビ</h1>
                         </div>
                     </div>
 
-                    {/* コンテンツ */}
-                    <div className="p-6 text-center">
-                        <div className="mb-6 p-8 bg-red-50 rounded-3xl border-2 border-dashed border-red-200">
-                            <h2 className="text-2xl font-black text-red-700 mb-2">祝・アプリ公開！</h2>
-                            <p className="text-sm text-gray-600">この画面が見えていれば、ウェブへの公開は完全に成功です！</p>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div className="p-4 border rounded-2xl text-left">
-                                <p className="font-bold">✨ 次のステップ</p>
-                                <p className="text-xs text-gray-500 mt-1">このコードの中に、サークルの情報をどんどん追加していきましょう。</p>
+                    {view === 'list' ? (
+                        <div className="animate-in fade-in duration-500">
+                            {/* 検索とフィルタ */}
+                            <div className="p-4 bg-white border-b">
+                                <div className="relative mb-4">
+                                    <input 
+                                        type="text"
+                                        placeholder="サークルやイベントを検索"
+                                        className="w-full bg-gray-100 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-800/20"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                                    {['すべて', 'スポーツ', '文化', '音楽', 'ボランティア'].map(g => (
+                                        <button
+                                            key={g}
+                                            onClick={() => setFilterGenre(g)}
+                                            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all ${filterGenre === g ? 'bg-red-800 border-red-800 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500'}`}
+                                        >
+                                            {g}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="p-4 border rounded-2xl text-left bg-gray-50">
-                                <p className="font-bold">📱 ホーム画面に追加</p>
-                                <p className="text-xs text-gray-500 mt-1">ブラウザのメニューから「ホーム画面に追加」をすると、本物のアプリのように使えます。</p>
+
+                            {/* リスト表示 */}
+                            <div className="p-4 space-y-4 pb-24">
+                                {filteredEvents.map(event => (
+                                    <div 
+                                        key={event.id} 
+                                        className="bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm active-scale transition-transform"
+                                        onClick={() => { setSelectedEvent(event); setView('detail'); }}
+                                    >
+                                        <div className="h-32 bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
+                                            <span className="text-red-800/10 font-black text-5xl">{event.circleName[0]}</span>
+                                        </div>
+                                        <div className="p-4">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <p className="text-[10px] font-bold text-red-800">{event.circleName}</p>
+                                                <span className="text-[10px] text-gray-400 font-bold">{event.genre}</span>
+                                            </div>
+                                            <h3 className="text-lg font-black text-gray-800 leading-tight mb-2">{event.eventName}</h3>
+                                            <div className="flex gap-3 text-[10px] text-gray-500 font-bold">
+                                                <div className="flex items-center gap-1"><i data-lucide="calendar" size="12"></i>{event.date}</div>
+                                                <div className="flex items-center gap-1"><i data-lucide="map-pin" size="12"></i>{event.place}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
-                </div>
-            );
-        }
+                    ) : (
+                        <div className="flex-1 bg-white animate-in slide-in-from-right duration-300">
+                            <div className="relative h-48 bg-red-900 flex items-center justify-center overflow-hidden">
+                                <button onClick={() => setView('list')} className="absolute top-4 left-4 z-10 bg-white/20 backdrop-blur-md text-white p-2 rounded-full">
+                                    <i data-lucide="chevron-left"></i>
+                                </button>
+                                <span className="text-white/10 font-black text-[120px]">{selectedEvent.circleName[0]}</span>
+                            </div>
+                            
+                            <div className="p-6 -mt-8 bg-white rounded-t-[32px] shadow-2xl relative min-h-screen">
+                                <h2 className="text-2xl font-black text-gray-800 mb-1">{selectedEvent.eventName}</h2>
+                                <p className="text-red-800 font-bold text-sm mb-6 flex items-center gap-1">
+                                    <i data-lucide="users" size="14"></i>{selectedEvent.circleName}
+                                </p>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                                <div className="grid grid-cols-2 gap-3 mb-8">
+                                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                        <p className="text-[10px] font-bold text-gray-400 mb-1 tracking-widest">DATE / TIME</p>
+                                        <p className="text-xs font-black text-gray-800">{selectedEvent.date}<br/>{selectedEvent.time}</p>
+                                    </div>
+                                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                        <p className="text-[10px] font-bold text-gray-400 mb-1 tracking-widest">PLACE</p>
+                                        <p className="text-xs font-black text-gray-800">{selectedEvent.place}</p>
+                                    </div>
+                                </div>
 
-```
+               
