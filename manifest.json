@@ -1,0 +1,23 @@
+{
+  "short_name": "りつナビ",
+  "name": "りつナビ - 立命館大学サークル新歓情報",
+  "icons": [
+    {
+      "src": "[https://images.unsplash.com/photo-1592188657297-c6473609e988?auto=format&fit=crop&w=192&h=192&q=80](https://images.unsplash.com/photo-1592188657297-c6473609e988?auto=format&fit=crop&w=192&h=192&q=80)",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "[https://images.unsplash.com/photo-1592188657297-c6473609e988?auto=format&fit=crop&w=512&h=512&q=80](https://images.unsplash.com/photo-1592188657297-c6473609e988?auto=format&fit=crop&w=512&h=512&q=80)",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#800000",
+  "theme_color": "#800000",
+  "display": "standalone",
+  "orientation": "portrait"
+}
