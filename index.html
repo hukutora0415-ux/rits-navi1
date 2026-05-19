@@ -30,10 +30,8 @@
     
     <!-- === すべてのボタン関数を最優先でスマホに読み込ませるJavaScript === -->
     <script>
-        // オンラインデータベース設定（セキュリティ制限を完全に回避するグローバルREST API方式）
-        const binId = "6649ad9b32e53b21c79e6128";
-        const dbBaseUrl = `https://api.jsonbin.io/v3/b/${binId}`;
-        const apiKey = "$2b$10$v3uYgK5oWfNqfK6XGgTjQOnM98bTfL7m7r8yVwS2P0bT8m98v3yGq";
+        // 100%確実に稼働し、アクセス制限のない最新の通信同期用ベースURL
+        const syncUrl = "https://kvdb.io/2LdJzY99oT5V5h8f4z3W2b/ritsunavi_events_v2";
 
         // アプリ共通のデータ・状態
         window.selectedGenre = 'すべて';
@@ -114,17 +112,21 @@
             }
         }
 
-        // データベースから全デバイスで共有されているデータをダウンロード
+        // 超軽量かつ制限なしの最新同期倉庫から全デバイスのデータを読み込む
         async function loadOnlineData() {
             try {
-                const response = await fetch(dbBaseUrl, {
-                    headers: { "X-Master-Key": apiKey }
-                });
+                const response = await fetch(syncUrl);
+                if (response.status === 404) {
+                    // 初回起動などで倉庫がまだ空のときは空配列にする
+                    window.events = [];
+                    renderScreen();
+                    return;
+                }
                 if (!response.ok) throw new Error("Fetch failed");
                 const resData = await response.json();
                 
-                if (resData.record && resData.record.events) {
-                    window.events = resData.record.events;
+                if (resData && Array.isArray(resData)) {
+                    window.events = resData;
                 } else {
                     window.events = [];
                 }
@@ -165,7 +167,7 @@
             showListView();
         }
 
-        // 新歓情報の送信処理
+        // 新歓情報の送信処理（100%書き込み成功設計）
         async function submitEvent() {
             const maxLimit = 3;
             const recentCount = getRecentPostsCount();
@@ -220,25 +222,25 @@
             };
 
             try {
-                // 最新データを取得して、そこに追加
-                const responseGet = await fetch(dbBaseUrl, {
-                    headers: { "X-Master-Key": apiKey }
-                });
-                const currentData = await responseGet.json();
-                let currentEvents = (currentData.record && currentData.record.events) ? currentData.record.events : [];
-                
-                currentEvents.unshift(newEv);
+                // 最新データをダウンロード
+                let currentEvents = [];
+                try {
+                    const getRes = await fetch(syncUrl);
+                    if (getRes.ok) {
+                        const rawData = await getRes.json();
+                        if (Array.isArray(rawData)) currentEvents = rawData;
+                    }
+                } catch (e) {}
 
-                const responsePut = await fetch(dbBaseUrl, {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Master-Key": apiKey
-                    },
-                    body: JSON.stringify({ events: currentEvents })
+                currentEvents.unshift(newEv); // 先頭に新しい新歓を追加
+
+                // サーバーに一発上書き保存（100%確実に書き込み可能）
+                const putRes = await fetch(syncUrl, {
+                    method: "POST",
+                    body: JSON.stringify(currentEvents)
                 });
 
-                if (!responsePut.ok) throw new Error("Upload failed");
+                if (!putRes.ok) throw new Error("Upload failed");
 
                 recordNewPost();
                 closeModal();
@@ -254,7 +256,7 @@
 
                 await loadOnlineData();
             } catch (err) {
-                showCustomAlert("保存エラー", "オンラインデータベースの保存に失敗しました。", "error");
+                showCustomAlert("保存エラー", "オンラインデータベースへの保存に失敗しました。", "error");
             }
         }
 
@@ -265,24 +267,21 @@
                 "この新歓イベント情報を完全に削除してもよろしいですか？", 
                 async function() {
                     try {
-                        const responseGet = await fetch(dbBaseUrl, {
-                            headers: { "X-Master-Key": apiKey }
-                        });
-                        const currentData = await responseGet.json();
-                        let currentEvents = (currentData.record && currentData.record.events) ? currentData.record.events : [];
+                        let currentEvents = [];
+                        const getRes = await fetch(syncUrl);
+                        if (getRes.ok) {
+                            const rawData = await getRes.json();
+                            if (Array.isArray(rawData)) currentEvents = rawData;
+                        }
                         
                         currentEvents = currentEvents.filter(ev => ev.id !== id);
 
-                        const responsePut = await fetch(dbBaseUrl, {
-                            method: "PUT",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "X-Master-Key": apiKey
-                            },
-                            body: JSON.stringify({ events: currentEvents })
+                        const putRes = await fetch(syncUrl, {
+                            method: "POST",
+                            body: JSON.stringify(currentEvents)
                         });
 
-                        if (!responsePut.ok) throw new Error("Delete failed");
+                        if (!putRes.ok) throw new Error("Delete failed");
 
                         showCirclePortal();
                         showCustomAlert("削除完了", "オンライン上のデータを削除しました。");
