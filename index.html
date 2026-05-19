@@ -4,176 +4,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>りつナビ</title>
+    <title>りつナビ - 立命館大学サークル新歓情報</title>
+    
+    <!-- === アプリ化（PWA）のための設定を追加 === -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#800000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="りつナビ">
+    <link rel="apple-touch-icon" href="https://images.unsplash.com/photo-1592188657297-c6473609e988?auto=format&fit=crop&w=192&h=192&q=80">
+
+    <!-- Tailwind CSS & Lucide Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+        body { 
+            font-family: 'Noto Sans JP', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .active-scale:active { transform: scale(0.98); transition: 0.1s; }
-        .modal-bg { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        .active-scale:active { transform: scale(0.96); transition: all 0.1s ease; }
+        .modal-bg { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
+<body class="bg-slate-50 text-slate-800">
 
-    <div id="app" class="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-xl relative">
+    <!-- メインコンテナ -->
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative border-x border-slate-100 flex flex-col">
+        
         <!-- ヘッダー -->
-        <header class="sticky top-0 z-30 bg-white border-b px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center gap-2" onclick="showListView()">
-                <div class="w-8 h-8 bg-red-800 rounded-lg flex items-center justify-center text-white font-black shadow-lg">R</div>
-                <h1 class="text-xl font-black text-gray-800 tracking-tighter">りつナビ</h1>
+        <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 py-3.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5 cursor-pointer" onclick="showListView()">
+                <div class="w-9 h-9 bg-red-800 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-red-900/20 active-scale">
+                    <span>R</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-black text-slate-900 tracking-tight leading-none">りつナビ</h1>
+                    <span class="text-[9px] text-red-800 font-bold tracking-widest uppercase">Ritsumeikan</span>
+                </div>
             </div>
-            <div id="header-buttons" class="flex gap-2">
-                <button onclick="handleAdminLogin()" class="text-[10px] font-black text-gray-300 border border-gray-200 px-3 py-1.5 rounded-full uppercase tracking-widest active-scale">Admin</button>
+            
+            <div id="header-buttons" class="flex items-center gap-2">
+                <button onclick="showCirclePortal()" class="text-[10px] font-black text-red-800 bg-red-50 border border-red-100 px-3.5 py-1.5 rounded-full uppercase tracking-wider active-scale flex items-center gap-1">
+                    <i data-lucide="user-cog" class="w-3 h-3"></i>
+                    サークル管理
+                </button>
             </div>
         </header>
 
-        <!-- メインコンテンツ表示エリア -->
-        <main id="main-content" class="flex-1 overflow-y-auto">
-            <!-- ここに中身が自動で入ります -->
+        <!-- サークル代表者用の案内告知バナー -->
+        <div id="reps-banner" class="bg-gradient-to-r from-red-800 to-red-950 text-white px-5 py-2.5 flex justify-between items-center text-xs">
+            <div class="flex items-center gap-2">
+                <span class="bg-white/20 px-2 py-0.5 rounded text-[9px] font-bold">サークル様へ</span>
+                <span class="font-medium">今すぐ新歓情報を登録・削除できます！</span>
+            </div>
+            <button onclick="showCirclePortal()" class="bg-white text-red-900 font-black px-3 py-1 rounded-full text-[10px] shadow-sm active-scale flex items-center gap-0.5">
+                管理画面へ
+                <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </button>
+        </div>
+
+        <!-- メイン画面表示エリア -->
+        <main id="main-content" class="flex-1 flex flex-col overflow-y-auto">
+            <!-- 動的描画エリア -->
         </main>
+
+        <!-- ボトムナビゲーション -->
+        <nav class="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-slate-100 py-3 px-8 flex justify-around items-center z-20">
+            <button onclick="showListView()" class="flex flex-col items-center gap-1 text-red-800 active-scale">
+                <i data-lucide="compass" class="w-5 h-5"></i>
+                <span class="text-[9px] font-black">新歓を探す</span>
+            </button>
+            <button onclick="showCirclePortal()" class="flex flex-col items-center gap-1 text-slate-400 active-scale">
+                <i data-lucide="user-cog" class="w-5 h-5"></i>
+                <span class="text-[9px] font-bold">サークル管理</span>
+            </button>
+        </nav>
     </div>
 
     <!-- 投稿フォームモーダル -->
     <div id="modal" class="fixed inset-0 z-[100] modal-bg hidden flex items-end justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-[40px] p-8 h-[92vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-black text-gray-800 italic tracking-tighter">POST EVENT</h2>
-                <button onclick="closeModal()" class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400">✕</button>
+        <div class="bg-white w-full max-w-md rounded-t-[32px] p-6 h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-6 bg-red-800 rounded-full"></span>
+                    <h2 class="text-xl font-black text-slate-900 tracking-tight">新歓情報の登録</h2>
+                </div>
+                <button onclick="closeModal()" class="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active-scale">✕</button>
             </div>
-            <div class="space-y-6 pb-12">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Circle Name</label>
-                    <input id="f-circle" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="例: 立命館大学 広告研究会">
+            
+            <div class="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-5 text-xs text-orange-800 space-y-1">
+                <p class="font-black flex items-center gap-1"><i data-lucide="shield-alert" class="w-4 h-4"></i>投稿件数の制限について</p>
+                <p class="leading-relaxed">いたずらや連投を防ぐため、1つの端末から投稿できるのは**「1日あたり最大3件まで」**です。（本日の残り枠: <span id="remaining-posts" class="font-bold underline">3</span>件）</p>
+            </div>
+            
+            <div class="space-y-5 pb-10">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-black text-slate-500">サークル名 <span class="text-red-600">*</span></label>
+                    <input id="f-circle" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 立命館大学 広告研究会">
                 </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Event Title</label>
-                    <input id="f-title" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="例: 春の新歓映像祭">
+                
+                <div class="space-y-1.5">
+                    <label class="text-xs font-black text-slate-500">イベント・活動名 <span class="text-red-600">*</span></label>
+                    <input id="f-title" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 春の新歓映像祭 & 交流ランチ会">
                 </div>
+                
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</label>
-                        <input id="f-date" type="date" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-xs">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-black text-slate-500">イベント日程 <span class="text-red-600">*</span></label>
+                        <input id="f-date" type="date" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-xs focus:border-red-800 focus:bg-white transition-all" value="2026-04-10">
                     </div>
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Time</label>
-                        <input id="f-time" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="18:00-20:00">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-black text-slate-500">時間帯 <span class="text-red-600">*</span></label>
+                        <input id="f-time" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 18:00 - 20:00">
                     </div>
                 </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Location</label>
-                    <input id="f-place" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="例: 衣笠 至善館">
+                
+                <div class="space-y-1.5">
+                    <label class="text-xs font-black text-slate-500">開催場所 <span class="text-red-600">*</span></label>
+                    <input id="f-place" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 衣笠 至善館 1F / オンライン">
                 </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Genre</label>
-                    <select id="f-genre" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm">
-                        <option>スポーツ</option><option>文化</option><option>音楽</option><option>ボランティア</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</label>
-                    <textarea id="f-desc" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 h-32 outline-none font-bold text-sm" placeholder="サークルの魅力を伝えよう！"></textarea>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">SNS Link (URL)</label>
-                    <input id="f-link" class="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 outline-none font-bold text-sm" placeholder="https://instagram.com/...">
-                </div>
-                <button onclick="submitEvent()" class="w-full bg-red-800 text-white py-5 rounded-[24px] font-black text-xl shadow-xl active-scale">情報を公開する</button>
-            </div>
-        </div>
-    </div>
 
-    <script>
-        // --- 1. データ管理 ---
-        let isAdmin = false;
-        let events = [
-            {
-                id: 1,
-                circleName: "立命館大学 広告研究会",
-                eventName: "春の新歓映像祭",
-                date: "2026-04-10",
-                time: "18:00-20:00",
-                place: "衣笠 至善館",
-                genre: "文化",
-                description: "サンプルの投稿です。管理画面から自由に追加・削除ができます。",
-                linkUrl: "https://instagram.com",
-                linkType: "Instagram"
-            }
-        ];
-
-        // --- 2. 管理画面機能 ---
-        function handleAdminLogin() {
-            const pass = prompt("管理者パスワードを入力してください\n(パスワード: ritsu2026)");
-            if (pass === "ritsu2026") {
-                isAdmin = true;
-                updateHeader();
-                showListView();
-            } else {
-                alert("パスワードが違います");
-            }
-        }
-
-        function handleLogout() {
-            isAdmin = false;
-            updateHeader();
-            showListView();
-        }
-
-        function updateHeader() {
-            const container = document.getElementById('header-buttons');
-            if (isAdmin) {
-                container.innerHTML = `
-                    <button onclick="openModal()" class="bg-red-800 text-white p-2 rounded-full shadow-lg active-scale"><i data-lucide="plus" size="18"></i></button>
-                    <button onclick="handleLogout()" class="bg-gray-100 text-gray-400 p-2 rounded-full active-scale"><i data-lucide="log-out" size="18"></i></button>
-                `;
-            } else {
-                container.innerHTML = `
-                    <button onclick="handleAdminLogin()" class="text-[10px] font-black text-gray-300 border border-gray-200 px-3 py-1.5 rounded-full uppercase tracking-widest active-scale">Admin</button>
-                `;
-            }
-            lucide.createIcons();
-        }
-
-        // --- 3. 表示切り替え機能 ---
-        function showListView() {
-            const main = document.getElementById('main-content');
-            let html = `<div class="p-4 space-y-4">`;
-            
-            events.forEach(ev => {
-                html += `
-                    <div class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden active-scale" onclick="showDetailView(${ev.id})">
-                        <div class="h-32 bg-red-50 flex items-center justify-center font-black text-red-800/10 text-5xl">${ev.circleName[0]}</div>
-                        <div class="p-5">
-                            <div class="flex justify-between items-start mb-1">
-                                <p class="text-[10px] font-black text-red-800 uppercase tracking-widest">${ev.circleName}</p>
-                                ${isAdmin ? `<button onclick="event.stopPropagation(); deleteEvent(${ev.id})" class="text-gray-300 hover:text-red-500 transition-colors p-1"><i data-lucide="trash-2" size="14"></i></button>` : ''}
-                            </div>
-                            <h3 class="text-lg font-black text-gray-800 leading-tight mb-3">${ev.eventName}</h3>
-                            <div class="flex gap-3 text-[10px] text-gray-400 font-bold">
-                                <span>📅 ${ev.date}</span>
-                                <span>📍 ${ev.place}</span>
-                            </div>
-                        </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-black text-slate-500">活動ジャンル</label>
+                        <select id="f-genre" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all">
+                            <option>スポーツ</option>
+                            <option>文化</option>
+                            <option>音楽</option>
+                            <option>ボランティア</option>
+                            <option>その他</option>
+                        </select>
                     </div>
-                `;
-            });
-            
-            html += `</div>`;
-            main.innerHTML = html;
-            lucide.createIcons();
-        }
-
-        function showDetailView(id) {
-            const ev = events.find(e => e.id === id);
-            const main = document.getElementById('main-content');
-            main.innerHTML = `
-                <div class="bg-white min-h-screen">
-                    <div class="relative h-56 bg-red-900 flex items-center justify-center">
-                        <button onclick="showListView()" class="absolute top-6 left-6 w-10 h-10 bg-white/20 rounded-full text-white flex items-center justify-center active-scale">
-                            <i data-lucide="chevron-left" size="20"></i>
-                        </button>
-                        <span class="text-white/10 font-black text-[140px] uppercase">${ev.circleName[0]}</span>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-black text-slate-500">参加費</label>
+                        <input id="f-price" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 無料、500円" value="無料">
                     </div>
- 
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-black text-slate-500">新歓紹介・メッセージ</label>
+                    <textarea id="f-desc" class="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 h-28 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="新入生へのアピール、サークルの雰囲気などを書いてください！"></textarea>
+                </div>
+
+                <div class="bg-red-50/50 p-4 rounded-2xl border border-red-100/50 space-y-3">
+                    <p class="text-xs font-black text-red-900 flex items-center gap-1">
+                        <i data-lucide="link" class="w-4 h-4 text-red-800"></i> 申し込み・SNSのURLを貼る
+                    </p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="col-span-1">
+                            <label class="text-[9px] font-black text-slate-400 block mb-1">SNSの種類</label>
+                            <s
