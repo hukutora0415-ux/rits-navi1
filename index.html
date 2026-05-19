@@ -5,450 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>りつナビ - 立命館大学サークル新歓情報</title>
     
-    <!-- === アプリ化（PWA）のための設定 === -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#800000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="りつナビ">
-    <link rel="apple-touch-icon" href="https://images.unsplash.com/photo-1592188657297-c6473609e988?auto=format&fit=crop&w=192&h=192&q=80">
 
     <!-- Tailwind CSS & Lucide Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
-        body { 
-            font-family: 'Noto Sans JP', sans-serif; 
-            -webkit-tap-highlight-color: transparent; 
-        }
+        body { font-family: 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .active-scale:active { transform: scale(0.96); transition: all 0.1s ease; }
         .modal-bg { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); }
     </style>
-    
-    <!-- === アプリの全データ通信・削除制限セキュリティ処理スクリプト === -->
-    <script>
-        // 100%確実に稼働し、アクセス制限のない最新の通信同期用ベースURL
-        const syncUrl = "https://kvdb.io/2LdJzY99oT5V5h8f4z3W2b/ritsunavi_events_v4";
-
-        // アプリ共通のデータ・状態
-        window.selectedGenre = 'すべて';
-        window.searchQuery = '';
-        window.currentView = 'list';
-        window.currentDisplayMode = 'listMode';
-
-        window.calendarYear = 2026;
-        window.calendarMonth = 4;
-        window.selectedCalendarDate = '';
-
-        window.events = [];
-
-        // 【セキュリティ】デバイス固有の秘密鍵（オーナーキー）をブラウザごとに生成して取得
-        function getDeviceOwnerKey() {
-            let key = localStorage.getItem('ritsunavi_device_owner_key_v4');
-            if (!key) {
-                key = "key_" + Date.now() + "_" + Math.random().toString(36).substring(2, 15);
-                localStorage.setItem('ritsunavi_device_owner_key_v4', key);
-            }
-            return key;
-        }
-
-        // デフォルトで表示するテストデータ
-        const defaultEvents = [
-            {
-                id: "default_1",
-                circleName: "立命館大学 広告研究会",
-                eventName: "春の新歓映像祭 & 交流ランチ会",
-                date: "2026-04-10",
-                time: "18:00 - 20:00",
-                place: "衣笠 至善館 1F",
-                price: "無料",
-                genre: "文化",
-                description: "CM制作やグラフィックデザイン、イベント企画を行っている立命館最大級のクリエイティブサークルです！新歓イベントでは、先輩が作ったクオリティの高い映像作品を見ながら美味しいお菓子とドリンクでフリートークを楽しめます。未経験者、カメラやPCを持っていない人も大歓迎です！",
-                linkUrl: "https://www.instagram.com/",
-                linkType: "Instagram",
-                frequency: "週2回（火・金）",
-                atmosphere: "クリエイティブかつ先輩後輩の壁がなくアットホームです！",
-                ownerKey: "system_default", 
-                qna: [
-                    { q: "機材（カメラやソフト）がなくても大丈夫ですか？", a: "サークルで共有の機材や編集用PCを完備しているので手ぶらで大丈夫です！先輩が優しく操作を教えます。" }
-                ]
-            },
-            {
-                id: "default_2",
-                circleName: "BKCテニス同好会 R-Shot",
-                eventName: "初心者歓迎！ラケット体験練習会 & 焼肉会",
-                date: "2026-04-12",
-                time: "13:00 - 16:00",
-                place: "BKC テニスコート第3",
-                price: "500円",
-                genre: "スポーツ",
-                description: "びわこ・くさつキャンパス（BKC）で活動する超活発なテニス同好会です！経験者はもちろん、ラケットを握ったことがない初心者新入生もたくさん所属しています。今回は初心者用のラケット体験会と、練習のあとにみんなで美味しい焼肉を食べに行くイベントです！まずは気軽に遊びにきてください！",
-                linkUrl: "https://line.me/",
-                linkType: "公式LINE",
-                frequency: "週3回（月・水・土）※自由参加",
-                atmosphere: "とにかく明るく笑顔が絶えない雰囲気です。イベントが盛りだくさん！",
-                ownerKey: "system_default",
-                qna: [
-                    { q: "テニス完全未経験ですが大丈夫でしょうか？", a: "大歓迎です！毎年約半数が初心者から始めており、みんなすぐにラリーができるようになりますよ。" }
-                ]
-            }
-        ];
-
-        // カスタム通知アラート（alertの代替）
-        function showCustomAlert(title, text, type = 'success') {
-            const modal = document.getElementById('alert-modal');
-            const iconContainer = document.getElementById('alert-icon');
-            const titleElem = document.getElementById('alert-title');
-            const textElem = document.getElementById('alert-text');
-
-            if (!modal || !iconContainer) return;
-
-            titleElem.textContent = title;
-            textElem.textContent = text;
-
-            if (type === 'error') {
-                iconContainer.className = "w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3 text-red-800";
-                iconContainer.innerHTML = `<i data-lucide="shield-alert" class="w-6 h-6"></i>`;
-            } else {
-                iconContainer.className = "w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3 text-green-800";
-                iconContainer.innerHTML = `<i data-lucide="check-circle" class="w-6 h-6"></i>`;
-            }
-
-            modal.classList.remove('hidden');
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        function closeAlertModal() {
-            const modal = document.getElementById('alert-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        // 確認ダイヤログモーダル（confirmの代替）
-        function showCustomConfirm(title, text, onConfirm) {
-            const modal = document.getElementById('confirm-modal');
-            const titleElem = document.getElementById('confirm-title');
-            const textElem = document.getElementById('confirm-text');
-            const btn = document.getElementById('confirm-ok-btn');
-
-            if (!modal) return;
-
-            titleElem.textContent = title;
-            textElem.textContent = text;
-            
-            btn.onclick = function() {
-                onConfirm();
-                closeConfirmModal();
-            };
-
-            modal.classList.remove('hidden');
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        function closeConfirmModal() {
-            const modal = document.getElementById('confirm-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        // 画面の更新・再描画
-        function renderScreen() {
-            const spinner = document.getElementById('loading-spinner');
-            if (spinner) spinner.classList.add('hidden');
-            
-            if (window.currentView === 'list') {
-                showListView();
-            } else if (window.currentView === 'portal') {
-                showCirclePortal();
-            } else if (window.currentView === 'detail' && window.currentActiveDetailId) {
-                showDetailView(window.currentActiveDetailId);
-            }
-        }
-
-        // クラウド共通倉庫から、お友達が入力した最新データなどを一瞬でダウンロード
-        async function loadOnlineData() {
-            try {
-                const response = await fetch(syncUrl);
-                if (response.status === 404) {
-                    window.events = defaultEvents;
-                    renderScreen();
-                    return;
-                }
-                if (!response.ok) throw new Error("Fetch failed");
-                const resData = await response.json();
-                
-                if (resData && Array.isArray(resData)) {
-                    window.events = resData;
-                    localStorage.setItem('ritsunavi_events_local_v4', JSON.stringify(window.events));
-                }
-                renderScreen();
-            } catch (err) {
-                console.log("Offline mode - loaded local data:", err);
-                const stored = localStorage.getItem('ritsunavi_events_local_v4');
-                if (stored) {
-                    window.events = JSON.parse(stored);
-                } else {
-                    window.events = defaultEvents;
-                }
-                renderScreen();
-            }
-        }
-
-        // 新規登録モーダルを開く
-        function openModal() {
-            const maxLimit = 3;
-            const recentCount = getRecentPostsCount();
-            const remainingSpan = document.getElementById('remaining-posts');
-            if (remainingSpan) {
-                remainingSpan.textContent = Math.max(0, maxLimit - recentCount);
-            }
-            const modal = document.getElementById('modal');
-            if (modal) modal.classList.remove('hidden');
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        // 検索処理
-        function handleSearch(val) {
-            window.searchQuery = val;
-            showListView();
-        }
-
-        // ジャンルフィルター処理
-        function handleGenreFilter(genre) {
-            window.selectedGenre = genre;
-            showListView();
-        }
-
-        // 新歓情報の登録送信処理（お友達のスマホに同期させる）
-        async function submitEvent() {
-            const maxLimit = 3;
-            const recentCount = getRecentPostsCount();
-            if (recentCount >= maxLimit) {
-                closeModal();
-                showCustomAlert("⚠️ 配信制限エラー", "荒らし防止のため、1日の新規登録枠（3件）を超えています。24時間後に再度お試しください。", "error");
-                return;
-            }
-
-            const circle = document.getElementById('f-circle').value.trim();
-            const title = document.getElementById('f-title').value.trim();
-            const date = document.getElementById('f-date').value;
-            const time = document.getElementById('f-time').value.trim();
-            const place = document.getElementById('f-place').value.trim();
-            const genre = document.getElementById('f-genre').value;
-            const price = document.getElementById('f-price').value.trim() || '無料';
-            const desc = document.getElementById('f-desc').value.trim() || '新歓の詳細情報はリンク先をご覧ください！';
-            const link = document.getElementById('f-link').value.trim() || 'https://instagram.com';
-            const linkType = document.getElementById('f-linkType').value;
-            
-            const qInput = document.getElementById('f-q').value.trim();
-            const aInput = document.getElementById('f-a').value.trim();
-
-            if (!circle || !title || !date || !time || !place) {
-                showCustomAlert("確認", "必須項目 (*) をすべて入力してください。", "error");
-                return;
-            }
-
-            const qna = [];
-            if (qInput && aInput) {
-                qna.push({ q: qInput, a: aInput });
-            } else {
-                qna.push({ q: "未経験でも大丈夫ですか？", a: "大歓迎です！ほとんどのメンバーが大学から始めています。" });
-            }
-
-            // この端末固有のシークレット鍵
-            const myOwnerKey = getDeviceOwnerKey();
-
-            const newEv = {
-                id: "ev_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
-                circleName: circle,
-                eventName: title,
-                date: date,
-                time: time,
-                place: place,
-                genre: genre,
-                price: price,
-                description: desc,
-                linkUrl: link,
-                linkType: linkType,
-                frequency: "週2回程度（自由参加）",
-                atmosphere: "アットホームで明るい！",
-                qna: qna,
-                ownerKey: myOwnerKey, // 作成したスマホの鍵を埋め込み
-                createdAt: Date.now()
-            };
-
-            // まずローカル保存
-            window.events.unshift(newEv);
-            localStorage.setItem('ritsunavi_events_local_v4', JSON.stringify(window.events));
-            
-            closeModal();
-            showListView();
-            showCustomAlert("投稿完了", "新歓情報が追加されました！自動でお友達の画面にも反映されます。");
-
-            // フォームの片付け
-            ['f-circle', 'f-title', 'f-date', 'f-time', 'f-place', 'f-desc', 'f-link', 'f-q', 'f-a'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            const priceEl = document.getElementById('f-price');
-            if (priceEl) priceEl.value = '無料';
-            recordNewPost();
-
-            // オンライン倉庫へ同期（PUT方式で一発同期！）
-            try {
-                let currentEvents = [];
-                const getRes = await fetch(syncUrl);
-                if (getRes.ok) {
-                    const rawData = await getRes.json();
-                    if (Array.isArray(rawData)) currentEvents = rawData;
-                }
-                
-                if (!currentEvents.some(ev => ev.id === newEv.id)) {
-                    currentEvents.unshift(newEv);
-                }
-
-                await fetch(syncUrl, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(currentEvents)
-                });
-                
-                await loadOnlineData();
-            } catch (err) {
-                console.log("Background sync delayed:", err);
-            }
-        }
-
-        // 新歓削除（完全に作成者だけができるセーフティ設計）
-        async function deleteEvent(id) {
-            const ev = window.events.find(e => e.id === id);
-            if (!ev) return;
-
-            const myOwnerKey = getDeviceOwnerKey();
-
-            // デフォルトデータ（デモ用）または、自分がこのスマホで作ったものでなければ削除をブロック！
-            if (ev.ownerKey !== "system_default" && ev.ownerKey !== myOwnerKey) {
-                showCustomAlert("制限", "このイベントは別のサークルが作成したため、削除することができません。", "error");
-                return;
-            }
-
-            showCustomConfirm(
-                "イベントの削除", 
-                "この新歓イベント情報を完全に削除してもよろしいですか？", 
-                async function() {
-                    // ローカルから最速削除
-                    window.events = window.events.filter(ev => ev.id !== id);
-                    localStorage.setItem('ritsunavi_events_local_v4', JSON.stringify(window.events));
-                    showCirclePortal();
-                    showCustomAlert("削除完了", "オンライン上のデータからも同期削除されます。");
-
-                    // ネット同期を削除
-                    try {
-                        let currentEvents = [];
-                        const getRes = await fetch(syncUrl);
-                        if (getRes.ok) {
-                            const rawData = await getRes.json();
-                            if (Array.isArray(rawData)) currentEvents = rawData;
-                        }
-                        
-                        currentEvents = currentEvents.filter(ev => ev.id !== id);
-
-                        await fetch(syncUrl, {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(currentEvents)
-                        });
-
-                        await loadOnlineData();
-                    } catch (err) {
-                        console.log("Delete sync delayed:", err);
-                    }
-                }
-            );
-        }
-
-        // スパム制限
-        function getRecentPostsCount() {
-            try {
-                const timestamps = JSON.parse(localStorage.getItem('ritsunavi_post_timestamps')) || [];
-                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-                const activeTimestamps = timestamps.filter(t => t > oneDayAgo);
-                localStorage.setItem('ritsunavi_post_timestamps', JSON.stringify(activeTimestamps));
-                return activeTimestamps.length;
-            } catch (e) {
-                return 0;
-            }
-        }
-
-        function recordNewPost() {
-            try {
-                const timestamps = JSON.parse(localStorage.getItem('ritsunavi_post_timestamps')) || [];
-                timestamps.push(Date.now());
-                localStorage.setItem('ritsunavi_post_timestamps', JSON.stringify(timestamps));
-            } catch (e) {}
-        }
-    </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
 
-    <!-- メインコンテナ -->
     <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative border-x border-slate-100 flex flex-col">
         
         <!-- ヘッダー -->
         <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 py-3.5 flex justify-between items-center">
-            <div class="flex items-center gap-2.5 cursor-pointer" onclick="showListView()">
+            <div class="flex items-center gap-2.5 cursor-pointer" onclick="window.showListView()">
                 <div class="w-9 h-9 bg-red-800 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-red-900/20 active-scale">
                     <span>R</span>
                 </div>
                 <div>
                     <h1 class="text-lg font-black text-slate-900 tracking-tight leading-none">りつナビ</h1>
-                    <span class="text-[9px] text-red-800 font-bold tracking-widest uppercase">Ritsumeikan</span>
+                    <span class="text-[9px] text-red-800 font-bold tracking-widest uppercase">Live BBS</span>
                 </div>
             </div>
-            
             <div id="header-buttons" class="flex items-center gap-2">
-                <button onclick="showCirclePortal()" class="text-[10px] font-black text-red-800 bg-red-50 border border-red-100 px-3.5 py-1.5 rounded-full uppercase tracking-wider active-scale flex items-center gap-1">
-                    <i data-lucide="user-cog" class="w-3 h-3"></i>
-                    サークル管理
+                <button onclick="window.showCirclePortal()" class="text-[10px] font-black text-red-800 bg-red-50 border border-red-100 px-3.5 py-1.5 rounded-full uppercase tracking-wider active-scale flex items-center gap-1">
+                    <i data-lucide="user-cog" class="w-3 h-3"></i> 自分の投稿
                 </button>
             </div>
         </header>
 
-        <!-- サークル代表者用の案内告知バナー -->
-        <div id="reps-banner" class="bg-gradient-to-r from-red-800 to-red-950 text-white px-5 py-2.5 flex justify-between items-center text-xs">
-            <div class="flex items-center gap-2">
-                <span class="bg-white/20 px-2 py-0.5 rounded text-[9px] font-bold">サークル様へ</span>
-                <span class="font-medium">今すぐ新歓情報を登録・削除できます！</span>
-            </div>
-            <button onclick="showCirclePortal()" class="bg-white text-red-900 font-black px-3 py-1 rounded-full text-[10px] shadow-sm active-scale flex items-center gap-0.5">
-                管理画面へ
-                <i data-lucide="chevron-right" class="w-3 h-3"></i>
-            </button>
-        </div>
-
         <!-- メイン画面表示エリア -->
         <main id="main-content" class="flex-1 flex flex-col overflow-y-auto">
-            <!-- 読み込み中のインジケーター -->
             <div id="loading-spinner" class="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
                 <div class="w-8 h-8 border-4 border-red-800 border-t-transparent rounded-full animate-spin mb-3"></div>
-                <p class="text-xs font-bold">新歓情報を取得中...</p>
+                <p class="text-xs font-bold">データベースに接続中...</p>
+                <p class="text-[10px] text-slate-400 mt-2">※初回は少し時間がかかります</p>
             </div>
         </main>
 
         <!-- ボトムナビゲーション -->
         <nav class="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-slate-100 py-3 px-8 flex justify-around items-center z-20">
-            <button onclick="showListView()" class="flex flex-col items-center gap-1 text-red-800 active-scale">
+            <button onclick="window.showListView()" class="flex flex-col items-center gap-1 text-red-800 active-scale">
                 <i data-lucide="compass" class="w-5 h-5"></i>
                 <span class="text-[9px] font-black">新歓を探す</span>
             </button>
-            <button onclick="showCirclePortal()" class="flex flex-col items-center gap-1 text-slate-400 active-scale">
-                <i data-lucide="user-cog" class="w-5 h-5"></i>
-                <span class="text-[9px] font-bold">サークル管理</span>
+            <button onclick="window.openModal()" class="relative -top-5 flex flex-col items-center justify-center w-14 h-14 bg-red-800 text-white rounded-full shadow-lg shadow-red-900/30 active-scale border-4 border-white">
+                <i data-lucide="plus" class="w-6 h-6"></i>
+            </button>
+            <button onclick="window.showCirclePortal()" class="flex flex-col items-center gap-1 text-slate-400 active-scale">
+                <i data-lucide="history" class="w-5 h-5"></i>
+                <span class="text-[9px] font-bold">自分の投稿</span>
             </button>
         </nav>
     </div>
@@ -459,14 +76,9 @@
             <div class="flex justify-between items-center mb-6">
                 <div class="flex items-center gap-2">
                     <span class="w-2.5 h-6 bg-red-800 rounded-full"></span>
-                    <h2 class="text-xl font-black text-slate-900 tracking-tight">新歓情報の登録</h2>
+                    <h2 class="text-xl font-black text-slate-900 tracking-tight">新歓情報の書き込み</h2>
                 </div>
-                <button onclick="closeModal()" class="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active-scale">✕</button>
-            </div>
-            
-            <div class="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-5 text-xs text-orange-800 space-y-1">
-                <p class="font-black flex items-center gap-1"><i data-lucide="shield-alert" class="w-4 h-4"></i>投稿件数の制限について</p>
-                <p class="leading-relaxed">いたずらや連投を防ぐため、1つの端末から投稿できるのは**「1日あたり最大3件まで」**です。（本日の残り枠: <span id="remaining-posts" class="font-bold underline">3</span>件）</p>
+                <button onclick="window.closeModal()" class="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active-scale">✕</button>
             </div>
             
             <div class="space-y-5 pb-10">
@@ -509,7 +121,7 @@
                     </div>
                     <div class="space-y-1.5">
                         <label class="text-xs font-black text-slate-500">参加費</label>
-                        <input id="f-price" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 無料、500円" value="無料">
+                        <input id="f-price" class="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="例: 無料" value="無料">
                     </div>
                 </div>
 
@@ -518,111 +130,292 @@
                     <textarea id="f-desc" class="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 h-28 outline-none font-medium text-sm focus:border-red-800 focus:bg-white transition-all" placeholder="新入生へのアピール、サークルの雰囲気などを書いてください！"></textarea>
                 </div>
 
-                <div class="bg-red-50/50 p-4 rounded-2xl border border-red-100/50 space-y-3">
-                    <p class="text-xs font-black text-red-900 flex items-center gap-1">
-                        <i data-lucide="link" class="w-4 h-4 text-red-800"></i> 申し込み・SNSのURLを貼る
-                    </p>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="col-span-1">
-                            <label class="text-[9px] font-black text-slate-400 block mb-1">SNSの種類</label>
-                            <select id="f-linkType" class="w-full bg-white p-2.5 rounded-xl border border-slate-100 outline-none font-bold text-xs">
-                                <option>Instagram</option>
-                                <option>公式LINE</option>
-                                <option>Googleフォーム</option>
-                                <option>Twitter/X</option>
-                                <option>サークルHP</option>
-                            </select>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="text-[9px] font-black text-slate-400 block mb-1">リンクURLを入力</label>
-                            <input id="f-link" class="w-full bg-white p-2.5 rounded-xl border border-slate-100 outline-none text-xs font-bold" placeholder="https://instagram.com/rits_ad">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100">
-                    <p class="text-xs font-black text-slate-700">💡 Q&A（よくある質問）を登録できます</p>
-                    <div class="space-y-2">
-                        <input id="f-q" class="w-full bg-white p-2.5 rounded-xl border border-slate-100 outline-none text-xs font-medium" placeholder="質問例：初心者でも入れますか？">
-                        <input id="f-a" class="w-full bg-white p-2.5 rounded-xl border border-slate-100 outline-none text-xs font-medium" placeholder="回答例：大歓迎です！ほとんど全員が未経験スタートです。">
-                    </div>
+                <!-- 削除用パスワード -->
+                <div class="bg-slate-800 p-4 rounded-2xl space-y-2 text-white shadow-inner">
+                    <label class="text-xs font-black text-slate-200 flex items-center gap-1.5">
+                        <i data-lucide="key" class="w-4 h-4"></i> 削除用パスワード (必須)
+                    </label>
+                    <p class="text-[10px] text-slate-400 mb-2">※他のスマホからこの投稿を消す時に必要になります。適当な4桁の数字を入れてください。</p>
+                    <input id="f-password" type="password" maxlength="4" class="w-full bg-slate-900 p-3 rounded-xl border border-slate-700 outline-none font-bold text-center tracking-widest text-lg placeholder:text-slate-600 focus:border-red-500 transition-all" placeholder="0000">
                 </div>
 
                 <div class="pt-4">
-                    <button onclick="submitEvent()" class="w-full bg-red-800 hover:bg-red-900 text-white py-4 rounded-[20px] font-black text-lg shadow-xl shadow-red-900/10 active-scale">この内容で公開する</button>
+                    <button id="submit-btn" onclick="window.submitEvent()" class="w-full bg-red-800 hover:bg-red-900 text-white py-4 rounded-[20px] font-black text-lg shadow-xl shadow-red-900/10 active-scale flex items-center justify-center gap-2">
+                        掲示板に書き込む
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 外部接続確認ポップアップ -->
-    <div id="link-modal" class="fixed inset-0 z-50 modal-bg hidden flex items-end justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-[32px] p-6 text-center animate-in slide-in-from-bottom duration-200">
-            <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6"></div>
-            <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <i data-lucide="external-link" class="w-8 h-8 text-red-800"></i>
+    <!-- パスワード入力用モーダル (削除用) -->
+    <div id="password-modal" class="fixed inset-0 z-[200] modal-bg hidden flex items-center justify-center p-5">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl animate-in zoom-in-95 duration-150">
+            <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-600">
+                <i data-lucide="lock" class="w-6 h-6"></i>
             </div>
-            <h3 class="text-lg font-black text-slate-900 mb-2">外部サイトへ移動</h3>
-            <p id="link-modal-text" class="text-sm text-slate-500 mb-6 leading-relaxed">指定されたリンク（SNS/フォーム）を開きます。</p>
-            <div class="flex flex-col gap-2.5">
-                <button id="link-confirm-btn" class="w-full bg-red-800 text-white py-4 rounded-2xl font-black text-base active-scale">リンク先を開く</button>
-                <button onclick="closeLinkModal()" class="w-full py-3.5 text-slate-400 font-bold text-sm">戻る</button>
+            <h3 class="text-base font-black text-slate-900 mb-2">削除パスワード</h3>
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">投稿時に設定したパスワードを入力してください。</p>
+            <input id="delete-password-input" type="password" maxlength="4" class="w-full bg-slate-50 p-3 rounded-xl border border-slate-200 outline-none font-bold text-center tracking-widest text-lg mb-4" placeholder="••••">
+            <div class="flex gap-2">
+                <button onclick="window.closePasswordModal()" class="flex-1 bg-slate-100 text-slate-500 py-3 rounded-xl font-bold text-xs active-scale">キャンセル</button>
+                <button id="confirm-delete-btn" class="flex-1 bg-red-800 text-white py-3 rounded-xl font-bold text-xs active-scale">削除する</button>
             </div>
         </div>
     </div>
 
-    <!-- カスタム通知ダイアログ（alertの代替） -->
+    <!-- カスタム通知ダイアログ -->
     <div id="alert-modal" class="fixed inset-0 z-[200] modal-bg hidden flex items-center justify-center p-5">
         <div class="bg-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl animate-in zoom-in-95 duration-150">
-            <div id="alert-icon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                <!-- アイコン -->
-            </div>
+            <div id="alert-icon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"></div>
             <h3 id="alert-title" class="text-base font-black text-slate-900 mb-1">通知</h3>
             <p id="alert-text" class="text-xs text-slate-500 mb-5 leading-relaxed">メッセージ内容</p>
-            <button onclick="closeAlertModal()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs active-scale">確認</button>
+            <button onclick="window.closeAlertModal()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs active-scale">確認</button>
         </div>
     </div>
 
-    <!-- カスタム確認ダイアログ（confirmの代替） -->
-    <div id="confirm-modal" class="fixed inset-0 z-[200] modal-bg hidden flex items-center justify-center p-5">
-        <div class="bg-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl animate-in zoom-in-95 duration-150">
-            <div id="confirm-icon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-red-800">
-                <i data-lucide="help-circle" class="w-6 h-6"></i>
-            </div>
-            <h3 id="confirm-title" class="text-base font-black text-slate-900 mb-1">確認</h3>
-            <p id="confirm-text" class="text-xs text-slate-500 mb-5 leading-relaxed">実行しますか？</p>
-            <div class="flex gap-2">
-                <button onclick="closeConfirmModal()" class="flex-1 bg-slate-100 text-slate-400 py-3 rounded-xl font-bold text-xs active-scale">キャンセル</button>
-                <button id="confirm-ok-btn" class="flex-1 bg-red-800 text-white py-3 rounded-xl font-bold text-xs active-scale">削除する</button>
-            </div>
-        </div>
-    </div>
+    <!-- ====================================================================== -->
+    <!-- ★★★ Firebase クラウド同期ロジック ★★★ -->
+    <!-- ====================================================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <!-- === 後半の表示UI・カレンダーUI描画用のスクリプト === -->
-    <script>
-        // サークル管理・オーナーイベント管理画面を描画
-        function showCirclePortal() {
+        // Firebaseの設定情報をそのまま適用
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyCrGO6B2YZivlR3hZcA8THYMCAaSRY3LCg",
+            authDomain: "first-f2567.firebaseapp.com",
+            projectId: "first-f2567",
+            storageBucket: "first-f2567.firebasestorage.app",
+            messagingSenderId: "1078183853799",
+            appId: "1:1078183853799:web:e2e9a1264ad361531bec42",
+            measurementId: "G-RCZ0DRB1C9"
+        };
+
+        // グローバル状態管理
+        window.selectedGenre = 'すべて';
+        window.searchQuery = '';
+        window.currentView = 'list';
+        window.currentDisplayMode = 'listMode';
+        window.calendarYear = 2026;
+        window.calendarMonth = 4;
+        window.selectedCalendarDate = '';
+        window.events = [];
+        window.db = null;
+        window.eventsRef = null;
+        
+        let myPostedIds = [];
+        try {
+            myPostedIds = JSON.parse(localStorage.getItem('ritsunavi_my_posts') || '[]');
+        } catch(e){}
+
+        // Firebaseの初期化
+        const initCloudDB = async () => {
+            if (Object.keys(myFirebaseConfig).length === 0) {
+                window.showCustomAlert("設定エラー", "Firebaseの設定が読み込めません。", "error");
+                document.getElementById('loading-spinner').innerHTML = `<p class="text-red-600 font-bold">初期設定が未完了です</p>`;
+                return;
+            }
+
+            try {
+                const app = initializeApp(myFirebaseConfig);
+                const auth = getAuth(app);
+                window.db = getFirestore(app);
+                window.eventsRef = collection(window.db, "bbs_events");
+
+                // 匿名ログインを実行
+                await signInAnonymously(auth);
+
+                // リアルタイム接続監視（お友達の投稿も1秒で即時同期！）
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        onSnapshot(window.eventsRef, (snapshot) => {
+                            let loadedEvents = [];
+                            snapshot.forEach(doc => {
+                                loadedEvents.push({ id: doc.id, ...doc.data() });
+                            });
+                            
+                            window.events = loadedEvents.sort((a, b) => b.createdAt - a.createdAt);
+                            window.renderScreen();
+                        }, (error) => {
+                            console.error("Firestore Error:", error);
+                            window.showCustomAlert("権限エラー", "Firestoreルールを更新してください。", "error");
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                window.showCustomAlert("接続エラー", "データベース接続に失敗しました。", "error");
+            }
+        };
+
+        // アラート&モーダル制御
+        window.showCustomAlert = (title, text, type = 'success') => {
+            const modal = document.getElementById('alert-modal');
+            const iconContainer = document.getElementById('alert-icon');
+            document.getElementById('alert-title').textContent = title;
+            document.getElementById('alert-text').textContent = text;
+            if (type === 'error') {
+                iconContainer.className = "w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3 text-red-800";
+                iconContainer.innerHTML = `<i data-lucide="shield-alert" class="w-6 h-6"></i>`;
+            } else {
+                iconContainer.className = "w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3 text-green-800";
+                iconContainer.innerHTML = `<i data-lucide="check-circle" class="w-6 h-6"></i>`;
+            }
+            modal.classList.remove('hidden');
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.closeAlertModal = () => document.getElementById('alert-modal').classList.add('hidden');
+        window.openModal = () => document.getElementById('modal').classList.remove('hidden');
+        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+        
+        window.openPasswordModal = (callback) => {
+            const modal = document.getElementById('password-modal');
+            const input = document.getElementById('delete-password-input');
+            input.value = '';
+            modal.classList.remove('hidden');
+            document.getElementById('confirm-delete-btn').onclick = () => {
+                callback(input.value);
+            };
+        };
+        window.closePasswordModal = () => document.getElementById('password-modal').classList.add('hidden');
+
+        window.handleSearch = (val) => { window.searchQuery = val; window.showListView(); };
+        window.handleGenreFilter = (genre) => { window.selectedGenre = genre; window.showListView(); };
+        window.setDisplayMode = (mode) => { window.currentDisplayMode = mode; window.showListView(); };
+        
+        window.renderScreen = () => {
+            const spinner = document.getElementById('loading-spinner');
+            if (spinner) spinner.classList.add('hidden');
+            
+            if (window.currentView === 'list') window.showListView();
+            else if (window.currentView === 'portal') window.showCirclePortal();
+            else if (window.currentView === 'detail' && window.currentActiveDetailId) window.showDetailView(window.currentActiveDetailId);
+        };
+
+        // 新歓書き込み処理
+        window.submitEvent = async () => {
+            if (!window.eventsRef) {
+                window.showCustomAlert("エラー", "接続が完了していません。", "error");
+                return;
+            }
+
+            const btn = document.getElementById('submit-btn');
+            if (btn.disabled) return;
+            
+            btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+            btn.disabled = true;
+
+            const circle = document.getElementById('f-circle').value.trim();
+            const title = document.getElementById('f-title').value.trim();
+            const date = document.getElementById('f-date').value;
+            const time = document.getElementById('f-time').value.trim();
+            const place = document.getElementById('f-place').value.trim();
+            const genre = document.getElementById('f-genre').value;
+            const price = document.getElementById('f-price').value.trim() || '無料';
+            const desc = document.getElementById('f-desc').value.trim() || '詳細は直接お問い合わせください！';
+            const password = document.getElementById('f-password').value.trim();
+
+            if (!circle || !title || !date || !time || !place || !password) {
+                window.showCustomAlert("確認", "必須項目(*)および削除パスワードを入力してください。", "error");
+                btn.innerHTML = `掲示板に書き込む`;
+                btn.disabled = false;
+                return;
+            }
+
+            const newEventData = {
+                circleName: circle,
+                eventName: title,
+                date: date,
+                time: time,
+                place: place,
+                genre: genre,
+                price: price,
+                description: desc,
+                deletePassword: password,
+                createdAt: Date.now()
+            };
+
+            try {
+                const docRef = await addDoc(window.eventsRef, newEventData);
+                
+                myPostedIds.push(docRef.id);
+                localStorage.setItem('ritsunavi_my_posts', JSON.stringify(myPostedIds));
+                
+                window.closeModal();
+                window.showCustomAlert("書き込み完了", "掲示板に公開され、お友達にも同期されました！");
+                
+                ['f-circle', 'f-title', 'f-time', 'f-place', 'f-desc', 'f-password'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+            } catch (error) {
+                console.error("Save Error:", error);
+                window.showCustomAlert("保存エラー", "書き込みに失敗しました。", "error");
+            } finally {
+                btn.innerHTML = `掲示板に書き込む`;
+                btn.disabled = false;
+            }
+        };
+
+        // セキュリティ対応・投稿削除要求
+        window.requestDelete = (id) => {
+            const ev = window.events.find(e => e.id === id);
+            if (!ev) return;
+
+            // 1. もし自分のスマホからの投稿履歴なら、パスワード不要で即削除
+            if (myPostedIds.includes(id)) {
+                if(confirm("あなたが投稿したイベントです。完全に削除しますか？")) {
+                    executeDelete(id);
+                }
+                return;
+            }
+
+            // 2. 他人の投稿の場合は、パスワード入力モーダルを立ち上げる！
+            window.openPasswordModal((inputPwd) => {
+                if (inputPwd === ev.deletePassword) {
+                    window.closePasswordModal();
+                    executeDelete(id);
+                } else {
+                    window.showCustomAlert("制限エラー", "削除パスワードが正しくありません。他人の投稿は勝手に消せません。", "error");
+                }
+            });
+        };
+
+        const executeDelete = async (id) => {
+            try {
+                await deleteDoc(doc(window.db, "bbs_events", id));
+                
+                myPostedIds = myPostedIds.filter(pid => pid !== id);
+                localStorage.setItem('ritsunavi_my_posts', JSON.stringify(myPostedIds));
+                
+                window.showListView();
+                window.showCustomAlert("削除完了", "掲示板から完全に削除しました。");
+            } catch (error) {
+                console.error("Delete Error:", error);
+                window.showCustomAlert("エラー", "削除に失敗しました。", "error");
+            }
+        };
+
+        // 「自分の投稿」ダッシュボード画面
+        window.showCirclePortal = () => {
             window.currentView = 'portal';
-            const repsBanner = document.getElementById('reps-banner');
-            if (repsBanner) repsBanner.classList.add('hidden');
             const main = document.getElementById('main-content');
             if (!main) return;
 
-            const myOwnerKey = getDeviceOwnerKey();
-
             let myEventsHtml = '';
             window.events.forEach(ev => {
-                // 【セキュリティ】system_default（デモデータ）または、自分のスマホで作ったもの（myOwnerKeyが合致するもの）だけ削除ボタンを表示
-                if (ev.ownerKey === myOwnerKey || ev.ownerKey === "system_default") {
+                if (myPostedIds.includes(ev.id)) {
                     myEventsHtml += `
-                        <div class="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 flex justify-between items-center">
+                        <div class="p-4 border border-slate-100 rounded-2xl bg-white flex justify-between items-center shadow-sm mb-3">
                             <div class="overflow-hidden pr-2">
                                 <p class="text-xs font-black text-slate-700 truncate">${ev.circleName}</p>
                                 <p class="text-[10px] text-slate-400 font-bold mt-0.5 truncate">${ev.eventName} (${ev.date})</p>
                             </div>
                             <div class="flex gap-2 flex-shrink-0">
-                                <button onclick="showDetailView('${ev.id}')" class="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-800 active-scale"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                                <button onclick="deleteEvent('${ev.id}')" class="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-800 active-scale"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                <button onclick="window.showDetailView('${ev.id}')" class="p-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-600 active-scale"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                                <button onclick="window.requestDelete('${ev.id}')" class="p-2 bg-red-50 border border-red-100 rounded-lg text-red-600 active-scale"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
                         </div>
                     `;
@@ -631,105 +424,54 @@
 
             main.innerHTML = `
                 <div class="p-6 space-y-6 animate-in fade-in duration-200">
-                    <div class="bg-gradient-to-r from-red-800 to-red-950 p-6 rounded-3xl text-white shadow-xl shadow-red-900/10">
-                        <p class="text-[10px] font-black tracking-widest uppercase opacity-70">Ritsumeikan Circle Portal</p>
-                        <h2 class="text-xl font-black mt-1">配信管理ダッシュボード</h2>
-                        <p class="text-[11px] mt-2 opacity-80 leading-relaxed">ここから新歓の登録をすると、オンラインを通じてお友達や新入生のスマホに一瞬で同期反映されます！</p>
-                        <div class="mt-4">
-                            <button onclick="openModal()" class="w-full bg-white text-red-900 font-black py-3 rounded-xl text-xs active-scale flex items-center justify-center gap-1.5 shadow-md">
-                                <i data-lucide="plus" class="w-4 h-4"></i> 新しく新歓情報を公開する
-                            </button>
+                    <div class="bg-slate-800 p-6 rounded-3xl text-white shadow-lg">
+                        <div class="flex justify-between items-start mb-2">
+                            <i data-lucide="history" class="w-6 h-6 text-slate-400"></i>
+                            <span class="bg-blue-500/20 text-blue-400 text-[9px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-blue-500/30">
+                                <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span> オンライン同期中
+                            </span>
                         </div>
+                        <h2 class="text-lg font-black">この端末の投稿履歴</h2>
+                        <p class="text-[11px] mt-2 text-slate-300 leading-relaxed">あなたがこの端末から追加した新歓一覧です。ここからは暗証番号なしで一発削除できます。</p>
                     </div>
-
-                    <div class="space-y-3.5">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="w-2 h-4 bg-red-800 rounded-full"></span>
-                            <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest">あなたが公開しているイベント</h3>
-                        </div>
+                    <div>
                         ${myEventsHtml === '' ? `
-                            <div class="py-12 text-center border-2 border-dashed border-slate-100 rounded-3xl text-slate-400">
-                                <p class="text-xs font-bold">あなたが登録したイベントはまだありません</p>
+                            <div class="py-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400">
+                                <p class="text-xs font-bold">まだこの端末からの投稿はありません</p>
                             </div>
                         ` : myEventsHtml}
-                    </div>
-
-                    <div class="border border-slate-100 rounded-3xl p-5 space-y-2.5">
-                        <p class="text-xs font-black text-slate-700">🛡️ 配信ルールについて</p>
-                        <ul class="text-[11px] text-slate-500 space-y-1.5 list-disc pl-4 leading-relaxed">
-                            <li>立命館大学の公認・非公認団体問わずすぐに配信可能です。</li>
-                            <li>荒らしや連投を防ぐため、1つの端末からイベント登録できるのは**1日3件まで**に制限されています。</li>
-                            <li>新入生が見やすいよう、SNSやフォームのリンクURLは正しく入力してください。</li>
-                        </ul>
                     </div>
                 </div>
             `;
             if (window.lucide) window.lucide.createIcons();
-        }
+        };
 
-        // 新歓を探す（メイン画面）を描画
-        function showListView() {
+        // リスト画面の描画処理（カレンダー切り替え付き）
+        window.showListView = () => {
             window.currentView = 'list';
             window.currentActiveDetailId = null;
-            const repsBanner = document.getElementById('reps-banner');
-            if (repsBanner) repsBanner.classList.remove('hidden');
             const main = document.getElementById('main-content');
             if (!main) return;
             
             let html = `
-                <!-- 検索・フィルター・表示切替コントロール -->
-                <div class="p-5 bg-white border-b border-slate-100 space-y-4">
-                    
-                    <!-- リスト / カレンダーの切り替えタブ -->
+                <div class="p-5 bg-white border-b border-slate-100 space-y-4 sticky top-0 z-10 shadow-sm">
                     <div class="flex bg-slate-100 p-1 rounded-2xl">
-                        <button onclick="setDisplayMode('listMode')" class="flex-1 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-                            window.currentDisplayMode === 'listMode' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
-                        }">
-                            <i data-lucide="list-ordered" class="w-4 h-4"></i> 日付順リスト
-                        </button>
-                        <button onclick="setDisplayMode('calendarMode')" class="flex-1 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-                            window.currentDisplayMode === 'calendarMode' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
-                        }">
-                            <i data-lucide="calendar-days" class="w-4 h-4"></i> カレンダー一覧
-                        </button>
+                        <button onclick="window.setDisplayMode('listMode')" class="flex-1 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${window.currentDisplayMode === 'listMode' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}"><i data-lucide="list-ordered" class="w-4 h-4"></i> リスト順</button>
+                        <button onclick="window.setDisplayMode('calendarMode')" class="flex-1 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${window.currentDisplayMode === 'calendarMode' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}"><i data-lucide="calendar-days" class="w-4 h-4"></i> カレンダー一覧</button>
                     </div>
-
-                    <!-- 検索バー -->
                     <div class="relative">
                         <i data-lucide="search" class="absolute left-3.5 top-3.5 text-slate-400 w-4.5 h-4.5"></i>
-                        <input 
-                            id="search-input"
-                            type="text" 
-                            placeholder="サークルやイベント名で検索" 
-                            class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 pl-10 pr-4 text-sm font-medium outline-none focus:bg-white focus:border-red-800/30 transition-all"
-                            value="${window.searchQuery}"
-                            oninput="handleSearch(this.value)"
-                        >
+                        <input type="text" placeholder="サークル名で検索" class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 pl-10 pr-4 text-sm font-medium outline-none focus:bg-white focus:border-red-800/30 transition-all" value="${window.searchQuery}" oninput="window.handleSearch(this.value)">
                     </div>
-                    
-                    <!-- ジャンルバッジ -->
                     <div class="flex gap-2.5 overflow-x-auto no-scrollbar py-0.5">
             `;
 
-            const genres = ['すべて', 'スポーツ', '文化', '音楽', 'ボランティア'];
-            genres.forEach(g => {
+            ['すべて', 'スポーツ', '文化', '音楽', 'ボランティア'].forEach(g => {
                 const isActive = window.selectedGenre === g;
-                html += `
-                    <button 
-                        onclick="handleGenreFilter('${g}')"
-                        class="px-4.5 py-2 rounded-full text-xs font-black whitespace-nowrap border transition-all active-scale ${
-                            isActive ? 'bg-red-800 border-red-800 text-white shadow-md shadow-red-900/10' : 'bg-white border-slate-200 text-slate-400'
-                        }"
-                    >
-                        ${g}
-                    </button>
-                `;
+                html += `<button onclick="window.handleGenreFilter('${g}')" class="px-4.5 py-2 rounded-full text-xs font-black whitespace-nowrap border transition-all active-scale ${isActive ? 'bg-red-800 border-red-800 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}">${g}</button>`;
             });
 
-            html += `
-                    </div>
-                </div>
-            `;
+            html += `</div></div>`;
 
             const filtered = window.events.filter(ev => {
                 const matchGenre = (window.selectedGenre === 'すべて' || ev.genre === window.selectedGenre);
@@ -740,16 +482,9 @@
             if (window.currentDisplayMode === 'listMode') {
                 html += `<div class="p-5 space-y-5 pb-24">`;
                 if (filtered.length === 0) {
-                    html += `
-                        <div class="py-16 text-center text-slate-300">
-                            <i data-lucide="calendar-off" class="w-14 h-14 mx-auto mb-3 opacity-30"></i>
-                            <p class="font-bold text-sm">該当する新歓はありません</p>
-                        </div>
-                    `;
+                    html += `<div class="py-16 text-center text-slate-300"><i data-lucide="database" class="w-14 h-14 mx-auto mb-3 opacity-30"></i><p class="font-bold text-sm">現在公開されている新歓イベントはありません</p></div>`;
                 } else {
-                    filtered.forEach(ev => {
-                        html += renderEventCard(ev);
-                    });
+                    filtered.forEach(ev => { html += renderEventCard(ev); });
                 }
                 html += `</div>`;
             } else {
@@ -758,48 +493,36 @@
 
             main.innerHTML = html;
             if (window.lucide) window.lucide.createIcons();
-        }
+        };
 
-        // 表示の切り替えトグルの処理
-        function setDisplayMode(mode) {
-            window.currentDisplayMode = mode;
-            showListView();
-        }
-
-        // 個別の新歓カードHTML
-        function renderEventCard(ev) {
-            return `
-                <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden active-scale transition-all" onclick="showDetailView('${ev.id}')">
-                    <div class="h-32 bg-gradient-to-br from-red-50 to-red-100/50 flex items-center justify-center relative">
-                        <span class="text-red-900/5 font-black text-6xl uppercase tracking-tighter select-none">${ev.circleName[0]}</span>
-                        <span class="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black text-red-800 border border-red-50 shadow-sm">${ev.genre}</span>
-                    </div>
-                    
-                    <div class="p-5">
-                        <p class="text-[10px] font-black text-red-800 tracking-wider uppercase mb-1.5">${ev.circleName}</p>
-                        <h3 class="text-base font-black text-slate-800 leading-snug mb-3">${ev.eventName}</h3>
-                        
-                        <div class="flex flex-wrap gap-4 items-center pt-2 border-t border-slate-50">
-                            <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
-                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-red-800"></i>
-                                <span>${ev.date.substring(5).replace('-', '/')}</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
-                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-red-800"></i>
-                                <span class="truncate max-w-[150px]">${ev.place}</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 ml-auto">
-                                <i data-lucide="circle-dollar-sign" class="w-3.5 h-3.5 text-green-700"></i>
-                                <span>${ev.price}</span>
-                            </div>
-                        </div>
+        const renderEventCard = (ev) => `
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden active-scale transition-all" onclick="window.showDetailView('${ev.id}')">
+                <div class="p-5 relative">
+                    <span class="absolute top-5 right-5 bg-red-50 px-3 py-1 rounded-full text-[10px] font-black text-red-800">${ev.genre}</span>
+                    <p class="text-[10px] font-black text-slate-400 mb-1.5"><i data-lucide="users" class="w-3 h-3 inline pb-0.5"></i> ${ev.circleName}</p>
+                    <h3 class="text-base font-black text-slate-800 leading-snug mb-3">${ev.eventName}</h3>
+                    <div class="flex items-center gap-3 text-[11px] font-bold text-slate-500">
+                        <span class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md"><i data-lucide="calendar" class="w-3.5 h-3.5 text-red-800"></i> ${ev.date.substring(5).replace('-', '/')}</span>
+                        <span class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md truncate max-w-[120px]"><i data-lucide="map-pin" class="w-3.5 h-3.5 text-red-800"></i> ${ev.place}</span>
                     </div>
                 </div>
-            `;
-        }
+            </div>
+        `;
 
-        // カレンダー画面レンダラー
-        function renderCalendarView(filteredEvents) {
+        window.changeMonth = (delta) => {
+            window.calendarMonth += delta;
+            if (window.calendarMonth > 12) { window.calendarMonth = 1; window.calendarYear++; }
+            if (window.calendarMonth < 1) { window.calendarMonth = 12; window.calendarYear--; }
+            window.selectedCalendarDate = '';
+            window.showListView();
+        };
+        
+        window.selectCalendarDate = (date) => {
+            window.selectedCalendarDate = window.selectedCalendarDate === date ? '' : date;
+            window.showListView();
+        };
+
+        const renderCalendarView = (filteredEvents) => {
             const eventDates = {};
             filteredEvents.forEach(ev => {
                 eventDates[ev.date] = eventDates[ev.date] || [];
@@ -810,9 +533,7 @@
             const totalDays = new Date(window.calendarYear, window.calendarMonth, 0).getDate();
 
             let calendarGridHtml = '';
-            for (let i = 0; i < firstDayIndex; i++) {
-                calendarGridHtml += `<div class="aspect-square"></div>`;
-            }
+            for (let i = 0; i < firstDayIndex; i++) calendarGridHtml += `<div class="aspect-square"></div>`;
 
             for (let day = 1; day <= totalDays; day++) {
                 const fullDateStr = `${window.calendarYear}-${String(window.calendarMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -820,18 +541,9 @@
                 const isSelected = window.selectedCalendarDate === fullDateStr;
 
                 calendarGridHtml += `
-                    <button 
-                        onclick="selectCalendarDate('${fullDateStr}')" 
-                        class="aspect-square flex flex-col items-center justify-center rounded-2xl relative transition-all active-scale ${
-                            isSelected ? 'bg-red-800 text-white font-black shadow-md shadow-red-900/10' : 'hover:bg-slate-50 text-slate-800'
-                        }"
-                    >
+                    <button onclick="window.selectCalendarDate('${fullDateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-2xl relative transition-all active-scale ${isSelected ? 'bg-red-800 text-white font-black shadow-md' : 'hover:bg-slate-50 text-slate-800'}">
                         <span class="text-xs font-bold">${day}</span>
-                        ${hasEvents ? `
-                            <span class="absolute bottom-1 w-1.5 h-1.5 rounded-full ${
-                                isSelected ? 'bg-white' : 'bg-red-800'
-                            }"></span>
-                        ` : ''}
+                        ${hasEvents ? `<span class="absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-red-800'}"></span>` : ''}
                     </button>
                 `;
             }
@@ -839,245 +551,92 @@
             let targetDayEventsHtml = '';
             if (window.selectedCalendarDate) {
                 const dayEvents = eventDates[window.selectedCalendarDate] || [];
-                const prettyDate = window.selectedCalendarDate.split('-').slice(1).join('/');
-
-                targetDayEventsHtml += `
-                    <div class="p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-black text-slate-500">${prettyDate} の新歓イベント (${dayEvents.length}件)</span>
-                            <button onclick="clearSelectedCalendarDate()" class="text-[10px] font-bold text-red-800">全体を表示</button>
-                        </div>
-                        <div class="space-y-4">
-                `;
-
+                targetDayEventsHtml += `<div class="p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">`;
                 if (dayEvents.length === 0) {
-                    targetDayEventsHtml += `
-                        <p class="text-xs text-slate-400 font-bold py-6 text-center">この日は新歓イベントがありません</p>
-                    `;
+                    targetDayEventsHtml += `<p class="text-xs text-slate-400 font-bold py-6 text-center">この日は新歓イベントがありません</p>`;
                 } else {
-                    dayEvents.forEach(ev => {
-                        targetDayEventsHtml += renderEventCard(ev);
-                    });
+                    dayEvents.forEach(ev => { targetDayEventsHtml += renderEventCard(ev); });
                 }
-                targetDayEventsHtml += `</div></div>`;
+                targetDayEventsHtml += `</div>`;
             } else {
                 targetDayEventsHtml += `
-                    <div class="p-5 border-t border-slate-100 space-y-4">
-                        <span class="text-xs font-black text-slate-400 tracking-wider uppercase">カレンダーの日付をタップすると新歓が探せます</span>
-                        <div class="space-y-4">
+                    <div class="p-5 border-t border-slate-100 space-y-3">
+                        <p class="text-[10px] text-slate-400 font-black tracking-wider uppercase">日付をタップすると、その日に開催されるサークルのイベントだけが表示されます！</p>
+                    </div>
                 `;
-                filteredEvents.forEach(ev => {
-                    targetDayEventsHtml += renderEventCard(ev);
-                });
-                targetDayEventsHtml += `</div></div>`;
             }
 
             return `
                 <div class="flex-1 bg-white flex flex-col pb-24">
                     <div class="px-6 py-4 flex justify-between items-center bg-slate-50/60 border-b border-slate-100">
-                        <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-600 active-scale"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                        <button onclick="window.changeMonth(-1)" class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-600 active-scale"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
                         <span class="text-sm font-black text-slate-800 tracking-wide">${window.calendarYear}年 ${window.calendarMonth}月</span>
-                        <button onclick="changeMonth(1)" class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-600 active-scale"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                        <button onclick="window.changeMonth(1)" class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-600 active-scale"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
                     </div>
-
                     <div class="grid grid-cols-7 gap-1 px-5 pt-3 text-center text-[10px] font-black tracking-widest text-slate-400">
                         <div class="text-red-700">日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div class="text-blue-700">土</div>
                     </div>
-
-                    <div class="grid grid-cols-7 gap-1 p-4">
-                        ${calendarGridHtml}
-                    </div>
-
-                    <div class="flex-1">
-                        ${targetDayEventsHtml}
-                    </div>
+                    <div class="grid grid-cols-7 gap-1 p-4">${calendarGridHtml}</div>
+                    <div class="flex-1">${targetDayEventsHtml}</div>
                 </div>
             `;
-        }
+        };
 
-        // 新歓詳細画面HTML（削除ボタンが管理者（作成者）のときだけ表示されるように設計）
-        function showDetailView(id) {
+        // 詳細画面の描画処理（自分が作成したもの以外のゴミ箱ボタンにセーフティロック追加）
+        window.showDetailView = (id) => {
             window.currentView = 'detail';
             window.currentActiveDetailId = id;
-            const repsBanner = document.getElementById('reps-banner');
-            if (repsBanner) repsBanner.classList.add('hidden');
             const ev = window.events.find(e => e.id === id);
             const main = document.getElementById('main-content');
             if (!main || !ev) return;
 
-            const myOwnerKey = getDeviceOwnerKey();
-            
-            let qnaHtml = '';
-            if (ev.qna && ev.qna.length > 0) {
-                qnaHtml += `
-                    <div class="mt-8">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="w-2.5 h-5 bg-red-800 rounded-full"></span>
-                            <h3 class="text-sm font-black text-slate-800 tracking-tight">サークルQ&A</h3>
-                        </div>
-                        <div class="space-y-3">
-                `;
-                ev.qna.forEach((qa, idx) => {
-                    qnaHtml += `
-                        <div class="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
-                            <p class="text-xs font-black text-red-800 flex items-start gap-1.5 mb-1.5">
-                                <span class="bg-red-800 text-white text-[9px] px-1.5 py-0.5 rounded-md">Q</span>
-                                <span>${qa.q}</span>
-                            </p>
-                            <p class="text-xs font-medium text-slate-600 leading-relaxed pl-6">
-                                ${qa.a}
-                            </p>
-                        </div>
-                    `;
-                });
-                qnaHtml += `
-                        </div>
-                    </div>
-                `;
-            }
-
-            // 【セキュリティ】あなたがこのデバイスで作ったもの、またはデモデータの場合のみ「詳細画面内でも削除を可能」にする
-            const isOwner = (ev.ownerKey === myOwnerKey || ev.ownerKey === "system_default");
+            const isMyPost = myPostedIds.includes(id);
 
             main.innerHTML = `
-                <div class="bg-white flex-1 animate-in slide-in-from-right duration-200">
-                    <div class="relative h-52 bg-red-900 flex items-center justify-center overflow-hidden">
-                        <button onclick="showListView()" class="absolute top-5 left-5 w-10 h-10 bg-white/20 backdrop-blur-md text-white rounded-full flex items-center justify-center active-scale z-10 border border-white/10">
-                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
-                        </button>
-                        <span class="text-white/5 font-black text-[150px] uppercase select-none">${ev.circleName[0]}</span>
+                <div class="bg-slate-50 flex-1 animate-in slide-in-from-right duration-200 relative pb-20">
+                    <header class="bg-white p-4 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10">
+                        <button onclick="window.showListView()" class="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center active-scale"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <span class="text-xs font-black text-slate-500 uppercase">新歓イベント詳細</span>
                         
-                        <!-- 自分が作ったイベントのときだけ、右上に「ゴミ箱（削除）」マークを表示！お友達の画面には絶対に出ません。 -->
-                        ${isOwner ? `
-                            <button onclick="deleteEvent('${ev.id}')" class="absolute top-5 right-5 w-10 h-10 bg-red-800 hover:bg-red-900 text-white rounded-full flex items-center justify-center active-scale z-10 border border-white/10 shadow-lg">
-                                <i data-lucide="trash-2" class="w-5 h-5"></i>
-                            </button>
-                        ` : ''}
-                    </div>
+                        <!-- 自分がこの端末で投稿した以外のイベントでは、ゴミ箱ボタンを非表示に！ -->
+                        ${isMyPost ? `
+                            <button onclick="window.requestDelete('${ev.id}')" class="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center active-scale"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        ` : `
+                            <!-- 他人の投稿でも、パスワードを知っている管理者のみが消せるように暗証番号ボタンとして表示します -->
+                            <button onclick="window.requestDelete('${ev.id}')" class="w-10 h-10 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center active-scale"><i data-lucide="lock" class="w-4 h-4"></i></button>
+                        `}
+                    </header>
 
-                    <div class="p-6 -mt-8 bg-white rounded-t-[36px] min-h-screen shadow-2xl relative">
-                        <div class="w-12 h-1 bg-slate-100 rounded-full mx-auto mb-6"></div>
-                        
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="bg-red-50 text-red-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest">${ev.genre}</span>
-                            <span class="text-[10px] text-slate-400 font-bold">立命館大学 新歓2026</span>
-                        </div>
-                        
-                        <h2 class="text-xl font-black text-slate-800 leading-snug mb-1.5">${ev.eventName}</h2>
-                        <p class="text-red-800 font-black text-sm mb-6 flex items-center gap-1.5">
-                            <i data-lucide="users" class="w-4 h-4"></i>
-                            <span>${ev.circleName}</span>
-                        </p>
+                    <div class="p-6 space-y-6">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                            <span class="bg-red-50 text-red-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest mb-3 inline-block">${ev.genre}</span>
+                            <h2 class="text-xl font-black text-slate-800 leading-snug mb-2">${ev.eventName}</h2>
+                            <p class="text-red-800 font-bold text-xs mb-6 flex items-center gap-1.5"><i data-lucide="users" class="w-4 h-4"></i><span>${ev.circleName}</span></p>
 
-                        <div class="grid grid-cols-2 gap-3.5 mb-6">
-                            <div class="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                                <div class="p-2 bg-white rounded-xl shadow-sm"><i data-lucide="calendar" class="w-4 h-4 text-red-800"></i></div>
+                            <div class="grid grid-cols-2 gap-3.5 mb-6 border-y border-slate-100 py-4">
                                 <div>
-                                    <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Schedule</p>
-                                    <p class="text-[11px] font-black text-slate-700 mt-0.5">${ev.date}<br>${ev.time}</p>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">日時</p>
+                                    <p class="text-xs font-bold text-slate-800">${ev.date}<br>${ev.time}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">場所・会費</p>
+                                    <p class="text-xs font-bold text-slate-800">${ev.place}<br>参加費: ${ev.price}</p>
                                 </div>
                             </div>
-                            <div class="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                                <div class="p-2 bg-white rounded-xl shadow-sm"><i data-lucide="map-pin" class="w-4 h-4 text-red-800"></i></div>
-                                <div>
-                                    <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Location</p>
-                                    <p class="text-[11px] font-black text-slate-700 mt-0.5 truncate w-24">${ev.place}</p>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="space-y-6">
                             <div>
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="w-2.5 h-5 bg-red-800 rounded-full"></span>
-                                    <h3 class="text-sm font-black text-slate-800 tracking-tight">サークル紹介</h3>
-                                </div>
+                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">イベント詳細・新入生へのメッセージ</h3>
                                 <p class="text-xs font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">${ev.description}</p>
                             </div>
-
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="bg-red-50/40 p-4 rounded-2xl border border-red-50">
-                                    <p class="text-[9px] font-black text-red-800 mb-1 tracking-wider uppercase">活動頻度</p>
-                                    <p class="text-xs font-bold text-slate-700">${ev.frequency || '週2〜3回程度'}</p>
-                                </div>
-                                <div class="bg-red-50/40 p-4 rounded-2xl border border-red-50">
-                                    <p class="text-[9px] font-black text-red-800 mb-1 tracking-wider uppercase">サークルの雰囲気</p>
-                                    <p class="text-xs font-bold text-slate-700">${ev.atmosphere || 'アットホームで明るい'}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${qnaHtml}
-
-                        <!-- 固定アクションボタン -->
-                        <div class="fixed bottom-16 left-6 right-6 max-w-md mx-auto z-20">
-                            <button 
-                                onclick="openLinkModal('${ev.linkUrl}', '${ev.linkType}', '${ev.circleName}')" 
-                                class="w-full bg-red-800 hover:bg-red-900 text-white py-4 rounded-[20px] font-black text-base shadow-xl shadow-red-900/20 active-scale flex items-center justify-center gap-2"
-                            >
-                                ${ev.linkType} で連絡・申し込む
-                                <i data-lucide="arrow-up-right" class="w-4.5 h-4.5"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
             `;
             if (window.lucide) window.lucide.createIcons();
-        }
-
-        // 外部リンクを開くモーダルの処理
-        let targetUrl = '';
-        function openLinkModal(url, type, circle) {
-            targetUrl = url;
-            const modal = document.getElementById('link-modal');
-            const text = document.getElementById('link-modal-text');
-            const btn = document.getElementById('link-confirm-btn');
-
-            if (!modal) return;
-
-            text.innerHTML = `
-                現在、安全に <strong>${circle}</strong> が指定した外部サイト<br>
-                <span class="text-red-800 font-bold underline underline-offset-4">【${type}】</span> へ接続しようとしています。
-            `;
-            modal.classList.remove('hidden');
-            
-            btn.onclick = function() {
-                window.open(targetUrl, '_blank');
-                closeLinkModal();
-            };
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        function closeLinkModal() {
-            const modal = document.getElementById('link-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        // ヘッダー管理ボタンの描画
-        function updateHeader() {
-            const container = document.getElementById('header-buttons');
-            if (!container) return;
-            container.innerHTML = `
-                <button onclick="showCirclePortal()" class="text-[10px] font-black text-red-800 bg-red-50 border border-red-200 px-3.5 py-1.5 rounded-full uppercase tracking-wider active-scale flex items-center gap-1">
-                    <i data-lucide="user-cog" class="w-3 h-3"></i>
-                    サークル管理
-                </button>
-            `;
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        // 起動時にまずオンライン同期データを読み込むように修正完了！(お友達とのオンライン同期開始)
-        window.onload = () => {
-            try {
-                updateHeader();
-                loadOnlineData(); // オンラインデータのダウンロードを実行！
-            } catch (e) {
-                console.error("Init load error:", e);
-            }
         };
 
-        // 10秒に1回、裏側で静かに最新のお友達の登録情報を同期する(超軽量API仕様)
-        setInterval(loadOnlineData, 10000);
+        // 起動
+        initCloudDB();
     </script>
 </body>
 </html>
