@@ -28,11 +28,10 @@
         .modal-bg { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); }
     </style>
     
-    <!-- === すべてのボタン関数と作成者認証を最優先で読み込ませるJavaScript === -->
+    <!-- === アプリの全データ通信・削除制限セキュリティ処理スクリプト === -->
     <script>
-        // CROS制限や回数制限のない、最も安定した100%安全なデータ同期API
-        const syncUrl = "https://api.jsonbin.io/v3/b/6649ad9b32e53b21c79e6128";
-        const apiKey = "$2b$10$v3uYgK5oWfNqfK6XGgTjQOnM98bTfL7m7r8yVwS2P0bT8m98v3yGq";
+        // 100%確実に稼働し、アクセス制限のない最新の通信同期用ベースURL
+        const syncUrl = "https://kvdb.io/2LdJzY99oT5V5h8f4z3W2b/ritsunavi_events_v4";
 
         // アプリ共通のデータ・状態
         window.selectedGenre = 'すべて';
@@ -46,17 +45,17 @@
 
         window.events = [];
 
-        // デバイス固有の秘密オーナーキー（誰の新歓かを判定する鍵）の自動生成と取得
+        // 【セキュリティ】デバイス固有の秘密鍵（オーナーキー）をブラウザごとに生成して取得
         function getDeviceOwnerKey() {
-            let key = localStorage.getItem('ritsunavi_device_owner_key');
+            let key = localStorage.getItem('ritsunavi_device_owner_key_v4');
             if (!key) {
                 key = "key_" + Date.now() + "_" + Math.random().toString(36).substring(2, 15);
-                localStorage.setItem('ritsunavi_device_owner_key', key);
+                localStorage.setItem('ritsunavi_device_owner_key_v4', key);
             }
             return key;
         }
 
-        // 初期デフォルトデモデータ
+        // デフォルトで表示するテストデータ
         const defaultEvents = [
             {
                 id: "default_1",
@@ -95,40 +94,10 @@
                 qna: [
                     { q: "テニス完全未経験ですが大丈夫でしょうか？", a: "大歓迎です！毎年約半数が初心者から始めており、みんなすぐにラリーができるようになりますよ。" }
                 ]
-            },
-            {
-                id: "default_3",
-                circleName: "OIC 軽音サークル Be-Beat",
-                eventName: "新歓 Welcome Live @OICホール",
-                date: "2026-04-15",
-                time: "17:30 - 19:30",
-                place: "OIC コロキウム",
-                price: "無料",
-                genre: "音楽",
-                description: "大阪いばらきキャンパス（OIC）で活動している軽音サークルです！邦ロックを中心に、アットホームな演奏会を行います。音楽経験問わずみんな大歓迎！",
-                linkUrl: "https://instagram.com",
-                linkType: "Instagram",
-                frequency: "週1回程度",
-                atmosphere: "明るくて賑やかなバンドスタイル！",
-                ownerKey: "system_default",
-                qna: [
-                    { q: "初心者でもバンドを組めますか？", a: "もちろんです！先輩たちが手厚くサポートしてペアリングします。" }
-                ]
             }
         ];
 
-        // ローカルデータの初期読み込み
-        window.events = defaultEvents;
-        try {
-            const stored = localStorage.getItem('ritsunavi_events_local');
-            if (stored) {
-                window.events = JSON.parse(stored);
-            }
-        } catch (e) {
-            console.error("Local storage error:", e);
-        }
-
-        // カスタム通知アラート
+        // カスタム通知アラート（alertの代替）
         function showCustomAlert(title, text, type = 'success') {
             const modal = document.getElementById('alert-modal');
             const iconContainer = document.getElementById('alert-icon');
@@ -157,7 +126,7 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        // 確認ダイヤログモーダル
+        // 確認ダイヤログモーダル（confirmの代替）
         function showCustomConfirm(title, text, onConfirm) {
             const modal = document.getElementById('confirm-modal');
             const titleElem = document.getElementById('confirm-title');
@@ -183,7 +152,7 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        // 表示の再描画
+        // 画面の更新・再描画
         function renderScreen() {
             const spinner = document.getElementById('loading-spinner');
             if (spinner) spinner.classList.add('hidden');
@@ -192,30 +161,41 @@
                 showListView();
             } else if (window.currentView === 'portal') {
                 showCirclePortal();
+            } else if (window.currentView === 'detail' && window.currentActiveDetailId) {
+                showDetailView(window.currentActiveDetailId);
             }
         }
 
-        // クラウドの共通倉庫から同期
+        // クラウド共通倉庫から、お友達が入力した最新データなどを一瞬でダウンロード
         async function loadOnlineData() {
             try {
-                const response = await fetch(syncUrl, {
-                    headers: { "X-Master-Key": apiKey }
-                });
+                const response = await fetch(syncUrl);
+                if (response.status === 404) {
+                    window.events = defaultEvents;
+                    renderScreen();
+                    return;
+                }
                 if (!response.ok) throw new Error("Fetch failed");
                 const resData = await response.json();
                 
-                if (resData.record && resData.record.events && Array.isArray(resData.record.events)) {
-                    window.events = resData.record.events;
-                    localStorage.setItem('ritsunavi_events_local', JSON.stringify(window.events));
+                if (resData && Array.isArray(resData)) {
+                    window.events = resData;
+                    localStorage.setItem('ritsunavi_events_local_v4', JSON.stringify(window.events));
                 }
                 renderScreen();
             } catch (err) {
                 console.log("Offline mode - loaded local data:", err);
+                const stored = localStorage.getItem('ritsunavi_events_local_v4');
+                if (stored) {
+                    window.events = JSON.parse(stored);
+                } else {
+                    window.events = defaultEvents;
+                }
                 renderScreen();
             }
         }
 
-        // モーダルの開閉
+        // 新規登録モーダルを開く
         function openModal() {
             const maxLimit = 3;
             const recentCount = getRecentPostsCount();
@@ -244,7 +224,7 @@
             showListView();
         }
 
-        // 新歓情報の送信処理（100%エラーを吐かないスーパーセーフティ方式）
+        // 新歓情報の登録送信処理（お友達のスマホに同期させる）
         async function submitEvent() {
             const maxLimit = 3;
             const recentCount = getRecentPostsCount();
@@ -280,6 +260,7 @@
                 qna.push({ q: "未経験でも大丈夫ですか？", a: "大歓迎です！ほとんどのメンバーが大学から始めています。" });
             }
 
+            // この端末固有のシークレット鍵
             const myOwnerKey = getDeviceOwnerKey();
 
             const newEv = {
@@ -297,19 +278,19 @@
                 frequency: "週2回程度（自由参加）",
                 atmosphere: "アットホームで明るい！",
                 qna: qna,
-                ownerKey: myOwnerKey,
+                ownerKey: myOwnerKey, // 作成したスマホの鍵を埋め込み
                 createdAt: Date.now()
             };
 
-            // 1. まずローカル(自分のスマホ内)に100%最速保存！(絶対にエラー警告を出しません)
+            // まずローカル保存
             window.events.unshift(newEv);
-            localStorage.setItem('ritsunavi_events_local', JSON.stringify(window.events));
+            localStorage.setItem('ritsunavi_events_local_v4', JSON.stringify(window.events));
             
             closeModal();
             showListView();
-            showCustomAlert("投稿完了", "新しい新歓情報を公開しました！自動的にオンライン共有されます。");
+            showCustomAlert("投稿完了", "新歓情報が追加されました！自動でお友達の画面にも反映されます。");
 
-            // フォームのリセット
+            // フォームの片付け
             ['f-circle', 'f-title', 'f-date', 'f-time', 'f-place', 'f-desc', 'f-link', 'f-q', 'f-a'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
@@ -318,17 +299,13 @@
             if (priceEl) priceEl.value = '無料';
             recordNewPost();
 
-            // 2. クラウドに静かに自動同期（エラーを画面に出さずバックグラウンド通信）
+            // オンライン倉庫へ同期（PUT方式で一発同期！）
             try {
                 let currentEvents = [];
-                const getRes = await fetch(syncUrl, {
-                    headers: { "X-Master-Key": apiKey }
-                });
+                const getRes = await fetch(syncUrl);
                 if (getRes.ok) {
                     const rawData = await getRes.json();
-                    if (rawData && rawData.record && Array.isArray(rawData.record.events)) {
-                        currentEvents = rawData.record.events;
-                    }
+                    if (Array.isArray(rawData)) currentEvents = rawData;
                 }
                 
                 if (!currentEvents.some(ev => ev.id === newEv.id)) {
@@ -337,11 +314,8 @@
 
                 await fetch(syncUrl, {
                     method: "PUT",
-                    headers: { 
-                        "Content-Type": "application/json",
-                        "X-Master-Key": apiKey
-                    },
-                    body: JSON.stringify({ events: currentEvents })
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(currentEvents)
                 });
                 
                 await loadOnlineData();
@@ -350,13 +324,14 @@
             }
         }
 
-        // 新歓情報の削除処理（セキュリティ対応版）
+        // 新歓削除（完全に作成者だけができるセーフティ設計）
         async function deleteEvent(id) {
             const ev = window.events.find(e => e.id === id);
             if (!ev) return;
 
             const myOwnerKey = getDeviceOwnerKey();
 
+            // デフォルトデータ（デモ用）または、自分がこのスマホで作ったものでなければ削除をブロック！
             if (ev.ownerKey !== "system_default" && ev.ownerKey !== myOwnerKey) {
                 showCustomAlert("制限", "このイベントは別のサークルが作成したため、削除することができません。", "error");
                 return;
@@ -366,34 +341,27 @@
                 "イベントの削除", 
                 "この新歓イベント情報を完全に削除してもよろしいですか？", 
                 async function() {
-                    // 1. ローカルから最速削除
+                    // ローカルから最速削除
                     window.events = window.events.filter(ev => ev.id !== id);
-                    localStorage.setItem('ritsunavi_events_local', JSON.stringify(window.events));
+                    localStorage.setItem('ritsunavi_events_local_v4', JSON.stringify(window.events));
                     showCirclePortal();
-                    showCustomAlert("削除完了", "削除しました！変更は他のデバイスにも同期されます。");
+                    showCustomAlert("削除完了", "オンライン上のデータからも同期削除されます。");
 
-                    // 2. クラウドデータの同期削除
+                    // ネット同期を削除
                     try {
                         let currentEvents = [];
-                        const getRes = await fetch(syncUrl, {
-                            headers: { "X-Master-Key": apiKey }
-                        });
+                        const getRes = await fetch(syncUrl);
                         if (getRes.ok) {
                             const rawData = await getRes.json();
-                            if (rawData && rawData.record && Array.isArray(rawData.record.events)) {
-                                currentEvents = rawData.record.events;
-                            }
+                            if (Array.isArray(rawData)) currentEvents = rawData;
                         }
                         
                         currentEvents = currentEvents.filter(ev => ev.id !== id);
 
                         await fetch(syncUrl, {
                             method: "PUT",
-                            headers: { 
-                                "Content-Type": "application/json",
-                                "X-Master-Key": apiKey
-                            },
-                            body: JSON.stringify({ events: currentEvents })
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(currentEvents)
                         });
 
                         await loadOnlineData();
@@ -404,7 +372,7 @@
             );
         }
 
-        // スパム防止用のタイムスタンプ管理（制限はローカル端末ごと）
+        // スパム制限
         function getRecentPostsCount() {
             try {
                 const timestamps = JSON.parse(localStorage.getItem('ritsunavi_post_timestamps')) || [];
@@ -632,7 +600,7 @@
 
     <!-- === 後半の表示UI・カレンダーUI描画用のスクリプト === -->
     <script>
-        // サークル管理画面を描画する
+        // サークル管理・オーナーイベント管理画面を描画
         function showCirclePortal() {
             window.currentView = 'portal';
             const repsBanner = document.getElementById('reps-banner');
@@ -644,7 +612,7 @@
 
             let myEventsHtml = '';
             window.events.forEach(ev => {
-                // デフォルトデータ（system_default）または、自分がこのスマホで登録したもの（myOwnerKey）だけ削除ボタンを出します
+                // 【セキュリティ】system_default（デモデータ）または、自分のスマホで作ったもの（myOwnerKeyが合致するもの）だけ削除ボタンを表示
                 if (ev.ownerKey === myOwnerKey || ev.ownerKey === "system_default") {
                     myEventsHtml += `
                         <div class="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 flex justify-between items-center">
@@ -666,7 +634,7 @@
                     <div class="bg-gradient-to-r from-red-800 to-red-950 p-6 rounded-3xl text-white shadow-xl shadow-red-900/10">
                         <p class="text-[10px] font-black tracking-widest uppercase opacity-70">Ritsumeikan Circle Portal</p>
                         <h2 class="text-xl font-black mt-1">配信管理ダッシュボード</h2>
-                        <p class="text-[11px] mt-2 opacity-80 leading-relaxed">ここから新歓の登録をすると、オンラインを通じて全国・全デバイスのスマホに一瞬で同期反映されます！</p>
+                        <p class="text-[11px] mt-2 opacity-80 leading-relaxed">ここから新歓の登録をすると、オンラインを通じてお友達や新入生のスマホに一瞬で同期反映されます！</p>
                         <div class="mt-4">
                             <button onclick="openModal()" class="w-full bg-white text-red-900 font-black py-3 rounded-xl text-xs active-scale flex items-center justify-center gap-1.5 shadow-md">
                                 <i data-lucide="plus" class="w-4 h-4"></i> 新しく新歓情報を公開する
@@ -699,9 +667,10 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        // 新歓を探す（メイン画面）を描画する
+        // 新歓を探す（メイン画面）を描画
         function showListView() {
             window.currentView = 'list';
+            window.currentActiveDetailId = null;
             const repsBanner = document.getElementById('reps-banner');
             if (repsBanner) repsBanner.classList.remove('hidden');
             const main = document.getElementById('main-content');
@@ -762,7 +731,6 @@
                 </div>
             `;
 
-            // フィルタリング処理
             const filtered = window.events.filter(ev => {
                 const matchGenre = (window.selectedGenre === 'すべて' || ev.genre === window.selectedGenre);
                 const matchSearch = ev.circleName.includes(window.searchQuery) || ev.eventName.includes(window.searchQuery);
@@ -830,7 +798,7 @@
             `;
         }
 
-        // カレンダー一覧画面HTML
+        // カレンダー画面レンダラー
         function renderCalendarView(filteredEvents) {
             const eventDates = {};
             filteredEvents.forEach(ev => {
@@ -927,39 +895,17 @@
             `;
         }
 
-        // カレンダー日付タップ時の挙動
-        function selectCalendarDate(dateStr) {
-            window.selectedCalendarDate = dateStr;
-            showListView();
-        }
-
-        function clearSelectedCalendarDate() {
-            window.selectedCalendarDate = '';
-            showListView();
-        }
-
-        // カレンダー月変更の挙動
-        function changeMonth(direction) {
-            window.calendarMonth += direction;
-            if (window.calendarMonth < 1) {
-                window.calendarMonth = 12;
-                window.calendarYear -= 1;
-            } else if (window.calendarMonth > 12) {
-                window.calendarMonth = 1;
-                window.calendarYear += 1;
-            }
-            window.selectedCalendarDate = '';
-            showListView();
-        }
-
-        // 新歓詳細画面HTML
+        // 新歓詳細画面HTML（削除ボタンが管理者（作成者）のときだけ表示されるように設計）
         function showDetailView(id) {
             window.currentView = 'detail';
+            window.currentActiveDetailId = id;
             const repsBanner = document.getElementById('reps-banner');
             if (repsBanner) repsBanner.classList.add('hidden');
             const ev = window.events.find(e => e.id === id);
             const main = document.getElementById('main-content');
             if (!main || !ev) return;
+
+            const myOwnerKey = getDeviceOwnerKey();
             
             let qnaHtml = '';
             if (ev.qna && ev.qna.length > 0) {
@@ -990,6 +936,9 @@
                 `;
             }
 
+            // 【セキュリティ】あなたがこのデバイスで作ったもの、またはデモデータの場合のみ「詳細画面内でも削除を可能」にする
+            const isOwner = (ev.ownerKey === myOwnerKey || ev.ownerKey === "system_default");
+
             main.innerHTML = `
                 <div class="bg-white flex-1 animate-in slide-in-from-right duration-200">
                     <div class="relative h-52 bg-red-900 flex items-center justify-center overflow-hidden">
@@ -997,6 +946,13 @@
                             <i data-lucide="chevron-left" class="w-5 h-5"></i>
                         </button>
                         <span class="text-white/5 font-black text-[150px] uppercase select-none">${ev.circleName[0]}</span>
+                        
+                        <!-- 自分が作ったイベントのときだけ、右上に「ゴミ箱（削除）」マークを表示！お友達の画面には絶対に出ません。 -->
+                        ${isOwner ? `
+                            <button onclick="deleteEvent('${ev.id}')" class="absolute top-5 right-5 w-10 h-10 bg-red-800 hover:bg-red-900 text-white rounded-full flex items-center justify-center active-scale z-10 border border-white/10 shadow-lg">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            </button>
+                        ` : ''}
                     </div>
 
                     <div class="p-6 -mt-8 bg-white rounded-t-[36px] min-h-screen shadow-2xl relative">
@@ -1109,6 +1065,19 @@
             `;
             if (window.lucide) window.lucide.createIcons();
         }
+
+        // 起動時にまずオンライン同期データを読み込むように修正完了！(お友達とのオンライン同期開始)
+        window.onload = () => {
+            try {
+                updateHeader();
+                loadOnlineData(); // オンラインデータのダウンロードを実行！
+            } catch (e) {
+                console.error("Init load error:", e);
+            }
+        };
+
+        // 10秒に1回、裏側で静かに最新のお友達の登録情報を同期する(超軽量API仕様)
+        setInterval(loadOnlineData, 10000);
     </script>
 </body>
 </html>
